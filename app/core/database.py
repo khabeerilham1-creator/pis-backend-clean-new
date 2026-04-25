@@ -1,12 +1,9 @@
 from pymongo import MongoClient
 import os
 
-MONGO_URL = os.getenv("MONGO_URL")
+MONGO_URI = os.getenv("MONGO_URI")
 
-if not MONGO_URL:
-    raise Exception("MONGO_URL not set")
-
-client = MongoClient(MONGO_URL)
-
-# ✅ FIXED (NO ENV NEEDED)
+client = MongoClient(MONGO_URI)
 db = client["pis_db"]
+
+users_collection = db["users"]

@@ -1,46 +1,38 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 
-# IMPORT ROUTES
-from app.routes.auth import router as auth_router
-from app.routes.patient import router as patient_router
-from app.routes.checkup import router as checkup_router
-from app.routes.report import router as report_router
-from app.routes.invoice import router as invoice_router
-from app.routes.afi import router as afi_router
-from app.routes.cis import router as cis_router
-from app.routes.dashboard import router as dashboard_router
-from app.routes.lvi import router as lvi_router
+# 🔥 IMPORT ROUTES
+from app.routes import auth, patient, fis, cis, checkup, report, visit, invoice, lvi, afi, dashboard
 
 app = FastAPI()
 
-# CORS
+# 🔥 CORS FIX (VERY IMPORTANT)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://clinic-client-lake.vercel.app",
+        "http://localhost:3000"
+    ],  # ✅ allow your frontend
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# STATIC FILES (SAFE FOR RENDER)
-import os
-if os.path.exists("uploads"):
-    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-# ROUTES
-app.include_router(auth_router)
-app.include_router(patient_router)
-app.include_router(checkup_router)
-app.include_router(report_router)
-app.include_router(invoice_router)
-app.include_router(afi_router)
-app.include_router(cis_router)
-app.include_router(dashboard_router)
-app.include_router(lvi_router)
+# 🔥 ROUTES
+app.include_router(auth.router, prefix="/auth")
+app.include_router(patient.router, prefix="/patients")
+app.include_router(fis.router, prefix="/fis")
+app.include_router(cis.router, prefix="/cis")
+app.include_router(checkup.router, prefix="/checkup")
+app.include_router(report.router, prefix="/report")
+app.include_router(visit.router, prefix="/visits")
+app.include_router(invoice.router, prefix="/invoice")
+app.include_router(lvi.router, prefix="/lvi")
+app.include_router(afi.router, prefix="/appointments")
+app.include_router(dashboard.router, prefix="/dashboard")
 
 
+# 🔥 ROOT (OPTIONAL)
 @app.get("/")
 def root():
-    return {"msg": "HDC System Running 🚀"}
+    return {"message": "API running 🚀"}
