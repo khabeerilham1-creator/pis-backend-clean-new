@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+body { font-family: Arial; padding:20px; }
+h2 { text-align:center; }
+
+.section { margin-top:20px; }
+
+.title {
+  background:#eef4ff;
+  padding:8px;
+  font-weight:bold;
+}
+
+table {
+  width:100%;
+  border-collapse:collapse;
+}
+
+th, td {
+  border:1px solid #ccc;
+  padding:6px;
+  text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Dental Checkup Report</h2>
+
+<div class="section">
+<div class="title">Patient Info</div>
+Name: {{data.patient_name}}<br>
+Contact: {{data.contact}}<br>
+Date: {{data.date}}<br>
+Complaint: {{data.chief_complaint}}
+</div>
+
+<div class="section">
+<div class="title">Clinical Findings</div>
+
+<table>
+<tr>
+<th>Tooth</th>
+<th>Condition</th>
+<th>Treatment</th>
+</tr>
+
+{% for t in data.tasks %}
+<tr>
+<td>{{t.tooth}}</td>
+<td>{{t.condition}}</td>
+<td>{{t.treatment}}</td>
+</tr>
+{% endfor %}
+
+</table>
+</div>
+
+<div class="section">
+<div class="title">Dental Chart</div>
+
+<img src="{{tooth_image}}" style="width:600px;">
+</div>
+
+</body>
+</html>

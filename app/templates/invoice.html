@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+
+<style>
+body { font-family: Arial; padding:25px; }
+
+h1 {
+    text-align:center;
+    color:#1a3c6e;
+}
+
+.section {
+    border:1px solid #d0d7e2;
+    margin-top:15px;
+}
+
+.title {
+    background:#e8f0fe;
+    color:#1a3c6e;
+    padding:8px;
+    font-weight:bold;
+}
+
+table {
+    width:100%;
+    border-collapse:collapse;
+}
+
+td, th {
+    border:1px solid #d0d7e2;
+    padding:6px;
+    text-align:center;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>Singularity Dental & Aesthetics</h1>
+
+<p>Date: {{date}} | Patient: {{name}}</p>
+
+<div class="section">
+<div class="title">BILLING DETAILS</div>
+
+<table>
+<tr>
+<th>Procedure</th>
+<th>Qty</th>
+<th>Rate</th>
+<th>Amount</th>
+</tr>
+
+{% for b in bills %}
+<tr>
+<td>{{b.procedure}}</td>
+<td>{{b.qty}}</td>
+<td>{{b.rate}}</td>
+<td>{{b.amount}}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+
+<div class="section">
+<div class="title">PAYMENTS</div>
+
+<table>
+<tr><th>Amount</th><th>Method</th></tr>
+
+{% for p in payments %}
+<tr>
+<td>{{p.amount}}</td>
+<td>{{p.method}}</td>
+</tr>
+{% endfor %}
+</table>
+</div>
+
+<div class="section">
+<div class="title">SUMMARY</div>
+
+<table>
+<tr><td>Total</td><td>{{total}}</td></tr>
+<tr><td>Paid</td><td>{{paid}}</td></tr>
+<tr><td><b>Balance</b></td><td><b>{{balance}}</b></td></tr>
+</table>
+
+</div>
+
+</body>
+</html>

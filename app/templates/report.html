@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+body { font-family: Arial; padding:20px; }
+h1 { text-align:center; color:#2b4c7e; }
+.section { margin-top:20px; }
+.title { background:#eef4ff; padding:8px; font-weight:bold; }
+
+table { width:100%; border-collapse:collapse; }
+th, td { border:1px solid #ccc; padding:6px; text-align:center; }
+
+.info { border:1px solid #ccc; padding:10px; }
+
+.chart { text-align:center; margin-top:10px; }
+.chart img { width:300px; }
+</style>
+</head>
+
+<body>
+
+<h1>HDC Holistic Domain of Creativity</h1>
+<p>Date: {{date}} | Time: {{time}}</p>
+
+<div class="section">
+<div class="title">PATIENT INFORMATION</div>
+<div class="info">
+Name: {{patient.name}}<br>
+Age: {{patient.age}}<br>
+Phone: {{patient.phone}}<br>
+Address: {{patient.address}}
+</div>
+</div>
+
+<div class="section">
+<div class="title">DENTAL CHECKUP REPORT</div>
+
+<table>
+<tr><th>Tooth</th><th>Condition</th><th>Treatment</th></tr>
+
+{% if checkup_tasks %}
+  {% for t in checkup_tasks %}
+  <tr>
+  <td>{{t.tooth}}</td>
+  <td>{{t.condition}}</td>
+  <td>{{t.treatment}}</td>
+  </tr>
+  {% endfor %}
+{% else %}
+<tr><td colspan="3">No checkup data</td></tr>
+{% endif %}
+
+</table>
+
+<br>
+<b>Chief Complaint:</b> {{chief_complaint}}
+</div>
+
+<div class="section">
+<div class="title">TREATMENT SUMMARY</div>
+
+<table>
+<tr><th>Tooth</th><th>Treatment</th></tr>
+
+{% for t in checkup_tasks %}
+<tr>
+<td>{{t.tooth}}</td>
+<td>{{t.treatment}}</td>
+</tr>
+{% endfor %}
+
+</table>
+</div>
+
+<div class="section">
+<div class="title">CLINICAL TIMELINE</div>
+
+<table>
+<tr>
+<th>Date</th><th>Diagnosis</th><th>Treatment</th><th>Medicines</th><th>Fee</th>
+</tr>
+
+{% if visits %}
+  {% for v in visits %}
+  <tr>
+  <td>{{v.date}}</td>
+  <td>{{v.diagnosis}}</td>
+  <td>{{v.treatment}}</td>
+  <td>{{v.medicines}}</td>
+  <td>{{v.fee}}</td>
+  </tr>
+  {% endfor %}
+{% else %}
+<tr><td colspan="5">No visit data</td></tr>
+{% endif %}
+
+</table>
+</div>
+
+<div class="section">
+<div class="title">DENTAL CHART</div>
+<div class="chart">
+<img src="file:///{{ tooth_image }}">
+</div>
+</div>
+
+</body>
+</html>
