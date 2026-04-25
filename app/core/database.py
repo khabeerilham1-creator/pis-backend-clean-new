@@ -1,18 +1,12 @@
 from pymongo import MongoClient
 import os
-from dotenv import load_dotenv
 
-load_dotenv()
+MONGO_URL = os.getenv("MONGO_URL")
 
-MONGO_URI = os.getenv("MONGO_URI")
-DB_NAME = os.getenv("DB_NAME")
+if not MONGO_URL:
+    raise Exception("MONGO_URL not set")
 
-client = MongoClient(MONGO_URI)
-db = client[DB_NAME]
+client = MongoClient(MONGO_URL)
 
-def connect_db():
-    try:
-        client.admin.command("ping")
-        print("MongoDB Connected ✅")
-    except Exception as e:
-        print("MongoDB Connection Failed ❌", e)
+# ✅ FIXED (NO ENV NEEDED)
+db = client["pis_db"]

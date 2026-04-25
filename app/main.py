@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-# ROUTES
+# IMPORT ROUTES
 from app.routes.auth import router as auth_router
 from app.routes.patient import router as patient_router
 from app.routes.checkup import router as checkup_router
@@ -24,8 +24,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# STATIC
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# STATIC FILES (SAFE FOR RENDER)
+import os
+if os.path.exists("uploads"):
+    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # ROUTES
 app.include_router(auth_router)
