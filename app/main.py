@@ -3,13 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 
-# ✅ CORS FIX (VERY IMPORTANT)
+# ✅ PUT THIS AT VERY TOP (IMPORTANT)
+origins = [
+    "http://localhost:3000",
+    "https://clinic-client-lake.vercel.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://clinic-client-lake.vercel.app"
-    ],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -25,8 +27,6 @@ def home():
 def login(data: dict, response: Response):
     username = data.get("username")
     password = data.get("password")
-
-    print("LOGIN:", username, password)
 
     if username == "owner" and password == "Newtimeline1122":
         response.set_cookie(
