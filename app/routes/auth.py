@@ -8,7 +8,6 @@ def login(data: dict):
     username = data.get("username")
     password = data.get("password")
 
-    # 🔥 Try BOTH username and email (important fix)
     user = users_collection.find_one({
         "$or": [
             {"username": username},
@@ -19,11 +18,9 @@ def login(data: dict):
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
 
-    # 🔥 FORCE STRING COMPARE (fix type issues)
     if str(password).strip() != str(user.get("password", "")).strip():
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-    # approval check
     if not user.get("is_approved", True):
         raise HTTPException(status_code=403, detail="Not approved")
 

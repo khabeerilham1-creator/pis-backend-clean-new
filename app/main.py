@@ -1,17 +1,18 @@
-from fastapi import FastAPI, Response
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+# ✅ IMPORT YOUR REAL AUTH ROUTE
+from app.routes import auth
 
 app = FastAPI()
 
-# ✅ PUT THIS AT VERY TOP (IMPORTANT)
-origins = [
-    "http://localhost:3000",
-    "https://clinic-client-lake.vercel.app",
-]
-
+# ✅ FIXED CORS (NO "*")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=[
+        "http://localhost:3000",
+        "https://clinic-client-lake.vercel.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -22,20 +23,5 @@ app.add_middleware(
 def home():
     return {"message": "API running 🚀"}
 
-# ✅ LOGIN ROUTE
-@app.post("/auth/login")
-def login(data: dict, response: Response):
-    username = data.get("username")
-    password = data.get("password")
-
-    if username == "owner" and password == "Newtimeline1122":
-        response.set_cookie(
-            key="token",
-            value="mysecrettoken",
-            httponly=True,
-            secure=True,
-            samesite="none"
-        )
-        return {"success": True}
-
-    return {"success": False}
+# ✅ USE YOUR REAL LOGIN SYSTEM
+app.include_router(auth.router)
