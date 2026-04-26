@@ -1,25 +1,31 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 from bson import ObjectId
 
 app = FastAPI()
 
-# 🔥 MONGODB CONNECTION (YOUR REAL ONE)
+# 🔥 DATABASE
 client = MongoClient("mongodb+srv://khabeerilham1_db_user:Khabeer2007@cluster0.f81lede.mongodb.net/?appName=Cluster0")
 db = client["pis"]
 users_collection = db["users"]
 
-# 🔥 CORS FIX (FINAL)
+# 🔥 CORS (FINAL FIX)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://clinic-client-lake.vercel.app"
+        "https://clinic-client-lake.vercel.app",
+        "http://localhost:3000"
     ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
+
+# 🔥 PREFLIGHT HANDLER (VERY IMPORTANT)
+@app.options("/{full_path:path}")
+async def preflight_handler(request: Request):
+    return {}
 
 # ROOT
 @app.get("/")
