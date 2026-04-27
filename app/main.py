@@ -1,9 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 
 app = FastAPI()
 
-# ✅ CORS (WORKING CONFIG)
+# ✅ CORS (FINAL WORKING CONFIG)
 origins = [
     "https://clinic-client-lake.vercel.app",
     "http://localhost:3000",
@@ -17,14 +18,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 🔥 TEST ROUTE
+# 🔥 FORCE HANDLE PREFLIGHT (IMPORTANT)
+@app.options("/{full_path:path}")
+def preflight_handler(full_path: str):
+    response = Response()
+    response.headers["Access-Control-Allow-Origin"] = "https://clinic-client-lake.vercel.app"
+    response.headers["Access-Control-Allow-Methods"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    return response
+
+
+# ✅ TEST ROUTE
 @app.get("/")
 def home():
     return {"message": "API running 🚀"}
 
-# 🔥 LOGIN ROUTE (TEMP SIMPLE)
+
+# ✅ LOGIN ROUTE
 @app.post("/auth/login")
 def login(data: dict):
-    if data.get("username") == "admin@hdc.com" and data.get("password") == "123456":
-        return {"access_token": "dummy_token"}
-    return {"error": "Invalid"}
+    username = data.get("username")
+    password = data.get("password")
+
+    if username == "admin@hdc.com" and password == "123456":
+        return {
+            "access_token": "dummy_token",
+            "user": username
+        }
+
+    return {"error": "Invalid credentials"}
