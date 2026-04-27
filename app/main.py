@@ -16,6 +16,7 @@ def home():
 
 @app.post("/auth/login")
 def login(data: dict):
-    if data.get("username") == "admin@hdc.com" and data.get("password") == "123456":
-        return {"access_token": "dummy_token"}
-    return {"error": "Invalid"}
+    return {
+        "received": data,
+        "access_token": "dummy_token"
+    }
