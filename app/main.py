@@ -1,9 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+# ✅ IMPORT ROUTER
+from app.routes.patients import router as patients_router
+
 app = FastAPI()
 
-# ✅ CORS FIX
+# ✅ CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -11,10 +14,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ✅ CONNECT ROUTES
+app.include_router(patients_router, prefix="/api")
+
+# ✅ ROOT
 @app.get("/")
 def home():
     return {"message": "API running 🚀"}
 
+# ✅ LOGIN
 @app.post("/auth/login")
 def login(data: dict):
     if data.get("username") == "admin@hdc.com" and data.get("password") == "123456":
