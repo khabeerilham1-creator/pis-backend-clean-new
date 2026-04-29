@@ -6,7 +6,7 @@ from uuid import uuid4
 
 router = APIRouter()
 
-# ✅ TEMP STORAGE (replace later with MongoDB)
+# ✅ TEMP STORAGE
 patients_db = []
 
 UPLOAD_FOLDER = "uploads"
@@ -76,7 +76,8 @@ def create_patient(
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(xray.file, buffer)
 
-        patient["xray"] = file_path
+        # 🔥 store public path
+        patient["xray"] = f"uploads/{filename}"
 
     patients_db.append(patient)
 
@@ -109,7 +110,7 @@ def update_patient(
                 with open(file_path, "wb") as buffer:
                     shutil.copyfileobj(xray.file, buffer)
 
-                p["xray"] = file_path
+                p["xray"] = f"uploads/{filename}"
 
             return {"msg": "Updated"}
 

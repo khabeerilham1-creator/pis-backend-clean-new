@@ -1,12 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
-# ✅ IMPORT ROUTER
 from app.routes.patients import router as patients_router
 
 app = FastAPI()
 
-# ✅ CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,15 +14,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ ADD THIS (MOST IMPORTANT LINE)
+# ✅ ROUTES
 app.include_router(patients_router, prefix="/api")
+
+# 🔥 SERVE IMAGES
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 @app.get("/")
 def home():
     return {"message": "API running 🚀"}
 
+
+# 🔥 LOGIN FIXED
+class LoginData(BaseModel):
+    username: str
+    password: str
+
 @app.post("/auth/login")
-def login(data: dict):
-    if data.get("username") == "admin@hdc.com" and data.get("password") == "123456":
+def login(data: LoginData):
+    if data.username == "admin@hdc.com" and data.password == "123456":
         return {"access_token": "dummy_token"}
     return {"error": "Invalid"}
