@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# 🔥 IMPORT (IMPORTANT — matches your file name: patient.py)
+# 🔥 THIS LINE WAS MISSING
 from app.routes.patient import router as patients_router
 
 app = FastAPI()
@@ -14,13 +14,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ HOME
+# HOME
 @app.get("/")
 def home():
     return {"message": "API running 🚀"}
 
 
-# ✅ LOGIN
+# LOGIN
 @app.post("/auth/login")
 def login(data: dict):
     if data.get("username") == "admin@hdc.com" and data.get("password") == "123456":
@@ -28,5 +28,5 @@ def login(data: dict):
     return {"error": "Invalid"}
 
 
-# 🔥 CONNECT PATIENT ROUTES
+# 🔥 THIS ENABLES /patients
 app.include_router(patients_router)
