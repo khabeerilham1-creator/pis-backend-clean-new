@@ -1,12 +1,11 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# 🔥 ADD THIS
-from app.routes.patients import router as patients_router
+# 🔥 FIXED IMPORT (matches your file name)
+from app.routes.patient import router as patients_router
 
 app = FastAPI()
 
-# ✅ CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
