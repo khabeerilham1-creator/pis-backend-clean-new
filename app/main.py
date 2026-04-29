@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routes.patients import router as patients_router  # 👈 IMPORTANT
+# 🔥 ADD THIS
+from app.routes.patients import router as patients_router
 
 app = FastAPI()
 
@@ -25,5 +26,5 @@ def login(data: dict):
     return {"error": "Invalid"}
 
 
-# 🔥 THIS IS THE MISSING PART
+# 🔥 CONNECT ROUTER
 app.include_router(patients_router)
