@@ -6,6 +6,9 @@ from uuid import uuid4
 
 router = APIRouter()
 
+# 🔥 DEBUG (to confirm router loads)
+print("✅ patients router loaded")
+
 # ✅ TEMP STORAGE
 patients_db = []
 
@@ -76,8 +79,8 @@ def create_patient(
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(xray.file, buffer)
 
-        # 🔥 store public path
-        patient["xray"] = f"uploads/{filename}"
+        # 🔥 store relative path
+        patient["xray"] = f"/uploads/{filename}"
 
     patients_db.append(patient)
 
@@ -110,7 +113,7 @@ def update_patient(
                 with open(file_path, "wb") as buffer:
                     shutil.copyfileobj(xray.file, buffer)
 
-                p["xray"] = f"uploads/{filename}"
+                p["xray"] = f"/uploads/{filename}"
 
             return {"msg": "Updated"}
 
