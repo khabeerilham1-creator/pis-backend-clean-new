@@ -6,23 +6,22 @@ from uuid import uuid4
 
 router = APIRouter()
 
-# 🔥 DEBUG (to confirm router loads)
-print("✅ patients router loaded")
+print("🔥 patient router loaded")  # debug
 
-# ✅ TEMP STORAGE
+# TEMP STORAGE
 patients_db = []
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 
-# 🔥 GET ALL
+# GET ALL
 @router.get("/patients")
 def get_patients():
     return patients_db
 
 
-# 🔥 CREATE
+# CREATE
 @router.post("/patients")
 def create_patient(
     name: str = Form(...),
@@ -71,7 +70,6 @@ def create_patient(
         "xray": ""
     }
 
-    # ✅ FILE UPLOAD
     if xray:
         filename = f"{uuid4()}_{xray.filename}"
         file_path = os.path.join(UPLOAD_FOLDER, filename)
@@ -79,7 +77,6 @@ def create_patient(
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(xray.file, buffer)
 
-        # 🔥 store relative path
         patient["xray"] = f"/uploads/{filename}"
 
     patients_db.append(patient)
@@ -87,7 +84,7 @@ def create_patient(
     return {"msg": "Patient created", "id": patient["_id"]}
 
 
-# 🔥 UPDATE
+# UPDATE
 @router.put("/patients/{id}")
 def update_patient(
     id: str,
@@ -120,7 +117,7 @@ def update_patient(
     return {"error": "Not found"}
 
 
-# 🔥 DELETE
+# DELETE
 @router.delete("/patients/{id}")
 def delete_patient(id: str):
     global patients_db
