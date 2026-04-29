@@ -1,11 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-# ✅ ADD THIS IMPORT
+# ✅ IMPORT ROUTER
 from app.routes.patients import router as patients_router
 
 app = FastAPI()
 
+# ✅ CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -13,7 +14,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ✅ ADD THIS LINE (MOST IMPORTANT)
+# ✅ ADD THIS (MOST IMPORTANT LINE)
 app.include_router(patients_router, prefix="/api")
 
 @app.get("/")
