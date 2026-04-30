@@ -6,25 +6,41 @@ router = APIRouter()
 
 checkups = db["checkups"]
 
+# CREATE
 @router.post("/checkups")
 def create_checkup(data: dict):
-    result = checkups.insert_one(data)
-    return {"id": str(result.inserted_id)}
+    try:
+        result = checkups.insert_one(data)
+        return {"id": str(result.inserted_id)}
+    except Exception as e:
+        return {"error": str(e)}
 
+# GET
 @router.get("/checkups")
 def get_checkups():
-    data = []
-    for c in checkups.find():
-        c["_id"] = str(c["_id"])
-        data.append(c)
-    return data
+    try:
+        data = []
+        for c in checkups.find():
+            c["_id"] = str(c["_id"])
+            data.append(c)
+        return data
+    except Exception as e:
+        return {"error": str(e)}
 
+# UPDATE
 @router.put("/checkups/{id}")
 def update_checkup(id: str, data: dict):
-    checkups.update_one({"_id": ObjectId(id)}, {"$set": data})
-    return {"msg": "updated"}
+    try:
+        checkups.update_one({"_id": ObjectId(id)}, {"$set": data})
+        return {"msg": "updated"}
+    except Exception as e:
+        return {"error": str(e)}
 
+# DELETE
 @router.delete("/checkups/{id}")
 def delete_checkup(id: str):
-    checkups.delete_one({"_id": ObjectId(id)})
-    return {"msg": "deleted"}
+    try:
+        checkups.delete_one({"_id": ObjectId(id)})
+        return {"msg": "deleted"}
+    except Exception as e:
+        return {"error": str(e)}
