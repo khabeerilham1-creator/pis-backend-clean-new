@@ -1,9 +1,14 @@
 from pymongo import MongoClient
 import os
 
-MONGO_URI = os.getenv("MONGO_URI")
+# ✅ Use environment variable (Render)
+MONGO_URL = os.getenv("MONGO_URL")
 
-client = MongoClient(MONGO_URI)
-db = client["pis_db"]
+# fallback (optional for local)
+if not MONGO_URL:
+    MONGO_URL = "mongodb://localhost:27017"
 
-users_collection = db["users"]
+client = MongoClient(MONGO_URL)
+
+# ✅ database name
+db = client["pis"]
