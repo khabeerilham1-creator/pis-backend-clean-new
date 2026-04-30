@@ -6,41 +6,41 @@ router = APIRouter()
 
 checkups = db["checkups"]
 
-# CREATE
-@router.post("/checkups")
-def create_checkup(data: dict):
-    try:
-        result = checkups.insert_one(data)
-        return {"id": str(result.inserted_id)}
-    except Exception as e:
-        return {"error": str(e)}
 
-# GET
-@router.get("/checkups")
+# =========================
+# GET ALL CHECKUPS
+# =========================
+@router.get("/")
 def get_checkups():
-    try:
-        data = []
-        for c in checkups.find():
-            c["_id"] = str(c["_id"])
-            data.append(c)
-        return data
-    except Exception as e:
-        return {"error": str(e)}
+    result = []
+    for c in checkups.find():
+        c["_id"] = str(c["_id"])
+        result.append(c)
+    return result
 
-# UPDATE
-@router.put("/checkups/{id}")
+
+# =========================
+# CREATE CHECKUP
+# =========================
+@router.post("/")
+def create_checkup(data: dict):
+    checkups.insert_one(data)
+    return {"msg": "Checkup created"}
+
+
+# =========================
+# UPDATE CHECKUP
+# =========================
+@router.put("/{id}")
 def update_checkup(id: str, data: dict):
-    try:
-        checkups.update_one({"_id": ObjectId(id)}, {"$set": data})
-        return {"msg": "updated"}
-    except Exception as e:
-        return {"error": str(e)}
+    checkups.update_one({"_id": ObjectId(id)}, {"$set": data})
+    return {"msg": "Updated"}
 
-# DELETE
-@router.delete("/checkups/{id}")
+
+# =========================
+# DELETE CHECKUP
+# =========================
+@router.delete("/{id}")
 def delete_checkup(id: str):
-    try:
-        checkups.delete_one({"_id": ObjectId(id)})
-        return {"msg": "deleted"}
-    except Exception as e:
-        return {"error": str(e)}
+    checkups.delete_one({"_id": ObjectId(id)})
+    return {"msg": "Deleted"}

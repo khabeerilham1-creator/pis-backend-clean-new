@@ -19,9 +19,10 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 env = Environment(loader=FileSystemLoader("app/templates"))
 
 
-@router.get("/report/{id}")
+@router.get("/{id}")
 def generate_report(id: str):
 
+    # validate Mongo ID
     if not ObjectId.is_valid(id):
         return {"error": "Invalid ID"}
 
@@ -29,7 +30,7 @@ def generate_report(id: str):
     if not patient:
         return {"error": "Patient not found"}
 
-    # ===== FETCH DATA =====
+    # 🔥 IMPORTANT: match how you store patient_id
     patient_checkups = list(checkups.find({"patient_id": id}))
     patient_visits = list(visits.find({"patient_id": id}))
 
@@ -40,10 +41,9 @@ def generate_report(id: str):
         tasks.extend(c.get("tasks", []))
         chief = c.get("complaint", "")
 
-    # ===== FIX IMAGE PATH =====
+    # image path
     tooth_path = os.path.abspath("app/static/teeth.png")
 
-    # ===== LOAD TEMPLATE =====
     template = env.get_template("report.html")
 
     html_content = template.render(
@@ -56,7 +56,6 @@ def generate_report(id: str):
         tooth_image=tooth_path
     )
 
-    # ===== GENERATE PDF =====
     file_path = f"{UPLOAD_DIR}/report_{id}.pdf"
 
     HTML(string=html_content).write_pdf(file_path)

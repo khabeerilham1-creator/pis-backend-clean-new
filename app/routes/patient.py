@@ -1,28 +1,37 @@
-from fastapi import APIRouter, UploadFile, File, Form
-from typing import Optional
+from fastapi import APIRouter, Depends, UploadFile, File, Form
+from app.core.database import db
+from bson import ObjectId
 import shutil
 import os
-from uuid import uuid4
+
+from app.auth.deps import get_current_user
+from app.utils.audit import log_action
 
 router = APIRouter()
-
-print("🔥 patient router loaded")  # debug
-
-# TEMP STORAGE
-patients_db = []
+patients = db["patients"]
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-
-# GET ALL
-@router.get("/patients")
-def get_patients():
-    return patients_db
+print("🔥 patient router loaded")
 
 
-# CREATE
-@router.post("/patients")
+# =========================
+# GET ALL PATIENTS
+# =========================
+@router.get("/")
+def get_patients(user=Depends(get_current_user)):
+    result = []
+    for p in patients.find():
+        p["_id"] = str(p["_id"])
+        result.append(p)
+    return result
+
+
+# =========================
+# CREATE PATIENT
+# =========================
+@router.post("/")
 def create_patient(
     name: str = Form(...),
     age: str = Form(...),
@@ -30,26 +39,24 @@ def create_patient(
     phone: str = Form(...),
     address: str = Form(...),
 
-    referral: str = Form(""),
-    care_category: str = Form(""),
+    # optional fields (match your frontend)
+    referral: str = Form(None),
+    care_category: str = Form(None),
+    conditions: str = Form(None),
+    allergies: str = Form(None),
+    medications: str = Form(None),
+    risk_flags: str = Form(None),
+    past_treatments: str = Form(None),
+    complaints: str = Form(None),
+    habits: str = Form(None),
+    signed_forms: str = Form(None),
+    estimates: str = Form(None),
+    legal_consents: str = Form(None),
 
-    conditions: str = Form(""),
-    allergies: str = Form(""),
-    medications: str = Form(""),
-    risk_flags: str = Form(""),
-
-    past_treatments: str = Form(""),
-    complaints: str = Form(""),
-    habits: str = Form(""),
-
-    signed_forms: str = Form(""),
-    estimates: str = Form(""),
-    legal_consents: str = Form(""),
-
-    xray: Optional[UploadFile] = File(None)
+    xray: UploadFile = File(None),
+    user=Depends(get_current_user)
 ):
-    patient = {
-        "_id": str(uuid4()),
+    data = {
         "name": name,
         "age": age,
         "gender": gender,
@@ -66,60 +73,49 @@ def create_patient(
         "habits": habits,
         "signed_forms": signed_forms,
         "estimates": estimates,
-        "legal_consents": legal_consents,
-        "xray": ""
+        "legal_consents": legal_consents
     }
 
+    # SAVE XRAY FILE
     if xray:
-        filename = f"{uuid4()}_{xray.filename}"
-        file_path = os.path.join(UPLOAD_FOLDER, filename)
-
+        file_path = f"{UPLOAD_FOLDER}/{xray.filename}"
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(xray.file, buffer)
+        data["xray"] = file_path
 
-        patient["xray"] = f"/uploads/{filename}"
+    result = patients.insert_one(data)
 
-    patients_db.append(patient)
+    # 🔥 AUDIT LOG
+    log_action(user, "create_patient", str(result.inserted_id), data)
 
-    return {"msg": "Patient created", "id": patient["_id"]}
+    return {"msg": "Patient created"}
 
 
-# UPDATE
-@router.put("/patients/{id}")
+# =========================
+# UPDATE PATIENT
+# =========================
+@router.put("/{id}")
 def update_patient(
     id: str,
-    name: str = Form(...),
-    age: str = Form(...),
-    gender: str = Form(...),
-    phone: str = Form(...),
-    address: str = Form(...),
-    xray: Optional[UploadFile] = File(None)
+    data: dict,
+    user=Depends(get_current_user)
 ):
-    for p in patients_db:
-        if p["_id"] == id:
-            p["name"] = name
-            p["age"] = age
-            p["gender"] = gender
-            p["phone"] = phone
-            p["address"] = address
+    patients.update_one({"_id": ObjectId(id)}, {"$set": data})
 
-            if xray:
-                filename = f"{uuid4()}_{xray.filename}"
-                file_path = os.path.join(UPLOAD_FOLDER, filename)
+    # 🔥 AUDIT LOG
+    log_action(user, "update_patient", id, data)
 
-                with open(file_path, "wb") as buffer:
-                    shutil.copyfileobj(xray.file, buffer)
-
-                p["xray"] = f"/uploads/{filename}"
-
-            return {"msg": "Updated"}
-
-    return {"error": "Not found"}
+    return {"msg": "Updated"}
 
 
-# DELETE
-@router.delete("/patients/{id}")
-def delete_patient(id: str):
-    global patients_db
-    patients_db = [p for p in patients_db if p["_id"] != id]
+# =========================
+# DELETE PATIENT
+# =========================
+@router.delete("/{id}")
+def delete_patient(id: str, user=Depends(get_current_user)):
+    patients.delete_one({"_id": ObjectId(id)})
+
+    # 🔥 AUDIT LOG
+    log_action(user, "delete_patient", id)
+
     return {"msg": "Deleted"}
