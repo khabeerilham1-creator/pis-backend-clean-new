@@ -20,17 +20,30 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 @router.post("/register")
 def register(data: dict):
 
-    if users.find_one({"username": data["username"]}):
-        raise HTTPException(status_code=400, detail="User already exists")
+    try:
+        username = data.get("username")
+        password = data.get("password")
 
-    hashed_password = pwd_context.hash(data["password"])
+        if not username or not password:
+            raise HTTPException(status_code=400, detail="Missing fields")
 
-    users.insert_one({
-        "username": data["username"],
-        "password": hashed_password
-    })
+        # check existing
+        if users.find_one({"username": username}):
+            raise HTTPException(status_code=400, detail="User already exists")
 
-    return {"msg": "User created"}
+        # hash password
+        hashed_password = pwd_context.hash(password)
+
+        users.insert_one({
+            "username": username,
+            "password": hashed_password
+        })
+
+        return {"msg": "User created"}
+
+    except Exception as e:
+        print("REGISTER ERROR:", e)
+        raise HTTPException(status_code=500, detail="Register failed")
 
 
 # =========================
@@ -39,20 +52,27 @@ def register(data: dict):
 @router.post("/login")
 def login(data: dict):
 
-    user = users.find_one({"username": data["username"]})
+    try:
+        username = data.get("username")
+        password = data.get("password")
 
-    if not user:
-        raise HTTPException(status_code=400, detail="User not found")
+        user = users.find_one({"username": username})
 
-    if not pwd_context.verify(data["password"], user["password"]):
-        raise HTTPException(status_code=400, detail="Wrong password")
+        if not user:
+            raise HTTPException(status_code=400, detail="User not found")
 
-    # 🔥 CREATE REAL JWT TOKEN
-    payload = {
-        "sub": user["username"],
-        "exp": datetime.utcnow() + timedelta(hours=10)
-    }
+        if not pwd_context.verify(password, user["password"]):
+            raise HTTPException(status_code=400, detail="Wrong password")
 
-    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+        payload = {
+            "sub": username,
+            "exp": datetime.utcnow() + timedelta(hours=10)
+        }
 
-    return {"access_token": token}
+        token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+        return {"access_token": token}
+
+    except Exception as e:
+        print("LOGIN ERROR:", e)
+        raise HTTPException(status_code=500, detail="Login failed")
