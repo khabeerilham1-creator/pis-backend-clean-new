@@ -1,64 +1,58 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from app.core.database import db
 from passlib.context import CryptContext
-from app.auth.utils import create_access_token
+from jose import jwt
+from datetime import datetime, timedelta
 
 router = APIRouter()
+
 users = db["users"]
+
+SECRET_KEY = "secret123"
+ALGORITHM = "HS256"
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-def verify_password(plain, hashed):
-    try:
-        return pwd_context.verify(plain, hashed)
-    except:
-        return False
-
-
-def hash_password(password):
-    try:
-        return pwd_context.hash(password)
-    except:
-        # 🔥 fallback if bcrypt fails on Render
-        return password
-
-
+# =========================
+# REGISTER
+# =========================
 @router.post("/register")
 def register(data: dict):
-    if users.find_one({"username": data.get("username")}):
-        return {"error": "User already exists"}
 
-    hashed = hash_password(data.get("password"))
+    if users.find_one({"username": data["username"]}):
+        raise HTTPException(status_code=400, detail="User already exists")
+
+    hashed_password = pwd_context.hash(data["password"])
 
     users.insert_one({
-        "username": data.get("username"),
-        "password": hashed,
-        "role": "admin"
+        "username": data["username"],
+        "password": hashed_password
     })
 
     return {"msg": "User created"}
 
 
+# =========================
+# LOGIN
+# =========================
 @router.post("/login")
 def login(data: dict):
-    user = users.find_one({"username": data.get("username")})
+
+    user = users.find_one({"username": data["username"]})
 
     if not user:
-        return {"error": "Invalid credentials"}
+        raise HTTPException(status_code=400, detail="User not found")
 
-    if not verify_password(data.get("password"), user["password"]):
-        # fallback if stored plain
-        if data.get("password") != user["password"]:
-            return {"error": "Invalid credentials"}
+    if not pwd_context.verify(data["password"], user["password"]):
+        raise HTTPException(status_code=400, detail="Wrong password")
 
-    token = create_access_token({
-        "id": str(user["_id"]),
-        "username": user["username"],
-        "role": user.get("role", "admin")
-    })
-
-    return {
-        "access_token": token,
-        "token_type": "bearer"
+    # 🔥 CREATE REAL JWT TOKEN
+    payload = {
+        "sub": user["username"],
+        "exp": datetime.utcnow() + timedelta(hours=10)
     }
+
+    token = jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+    return {"access_token": token}
