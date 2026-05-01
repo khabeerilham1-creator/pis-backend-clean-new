@@ -1,28 +1,21 @@
 from fastapi import APIRouter
-from fastapi.responses import FileResponse
+from fastapi.responses import Response
 from app.core.database import db
-from bson import ObjectId
-from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
-import os
+from datetime import datetime
+from bson import ObjectId
 
 router = APIRouter()
 
-invoices = db["invoices"]
+# Collections
+billing = db["billing"]
 payments = db["payments"]
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
-
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
+invoices = db["invoices"]
 
 
 # =========================
-# CREATE INVOICE
+# CREATE INVOICE (MANUAL SAVE)
 # =========================
 @router.post("/invoice")
 async def create_invoice(data: dict):
@@ -31,7 +24,9 @@ async def create_invoice(data: dict):
     rate = float(data.get("rate", 0))
 
     total = qty * rate
-    paid = float(data.get("payment1", 0)) + float(data.get("payment2", 0))
+
+    p1 = float(data.get("payment1", 0))
+    p2 = float(data.get("payment2", 0))
 
     invoice = {
         "patient_name": data.get("patient_name"),
@@ -39,14 +34,13 @@ async def create_invoice(data: dict):
         "qty": qty,
         "rate": rate,
         "amount": total,
-        "paid": paid,
-        "balance": total - paid,
-        "created_at": datetime.now()
+        "paid": p1 + p2,
+        "balance": total - (p1 + p2),
+        "created_at": datetime.utcnow()
     }
 
-    invoices.insert_one(invoice)
-
-    return {"msg": "Invoice created"}
+    res = invoices.insert_one(invoice)
+    return {"id": str(res.inserted_id)}
 
 
 # =========================
@@ -62,32 +56,56 @@ def get_invoices():
 
 
 # =========================
-# GENERATE PDF
+# UPDATE INVOICE
 # =========================
-@router.get("/invoice-pdf/{name}")
-def generate_invoice_pdf(name: str):
+@router.put("/invoice/{id}")
+async def update_invoice(id: str, data: dict):
+    invoices.update_one({"_id": ObjectId(id)}, {"$set": data})
+    return {"msg": "Updated"}
 
-    bills = list(invoices.find({"patient_name": name}))
-    pays = list(payments.find({"patient_name": name}))
+
+# =========================
+# DELETE INVOICE
+# =========================
+@router.delete("/invoice/{id}")
+def delete_invoice(id: str):
+    invoices.delete_one({"_id": ObjectId(id)})
+    return {"msg": "Deleted"}
+
+
+# =========================
+# 🔥 GENERATE PDF
+# =========================
+@router.get("/invoice-pdf/{patient_name}")
+def generate_invoice(patient_name: str):
+
+    bills = list(billing.find({"patient_name": patient_name}))
+    payments_data = list(payments.find({"patient_name": patient_name}))
 
     total = sum([b.get("amount", 0) for b in bills])
-    paid = sum([b.get("paid", 0) for b in bills])
+    paid = sum([p.get("amount", 0) for p in payments_data])
     balance = total - paid
 
+    # LOAD TEMPLATE
+    env = Environment(loader=FileSystemLoader("templates"))
     template = env.get_template("invoice.html")
 
-    html = template.render(
-        date=datetime.now().strftime("%d-%b-%Y"),
-        name=name,
+    html_content = template.render(
+        name=patient_name,
         bills=bills,
-        payments=pays,
+        payments=payments_data,
         total=total,
         paid=paid,
-        balance=balance
+        balance=balance,
+        date=datetime.now().strftime("%d-%m-%Y")
     )
 
-    file_path = os.path.join(UPLOAD_DIR, f"invoice_{name}.pdf")
+    pdf = HTML(string=html_content).write_pdf()
 
-    HTML(string=html, base_url=BASE_DIR).write_pdf(file_path)
-
-    return FileResponse(file_path, media_type="application/pdf")
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"inline; filename=invoice_{patient_name}.pdf"
+        }
+    )
