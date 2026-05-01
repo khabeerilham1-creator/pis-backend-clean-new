@@ -54,6 +54,7 @@ td, th {
 <th>Amount</th>
 </tr>
 
+{% if bills %}
 {% for b in bills %}
 <tr>
 <td>{{b.procedure}}</td>
@@ -62,6 +63,10 @@ td, th {
 <td>{{b.amount}}</td>
 </tr>
 {% endfor %}
+{% else %}
+<tr><td colspan="4">No billing data</td></tr>
+{% endif %}
+
 </table>
 </div>
 
@@ -71,12 +76,17 @@ td, th {
 <table>
 <tr><th>Amount</th><th>Method</th></tr>
 
+{% if payments %}
 {% for p in payments %}
 <tr>
 <td>{{p.amount}}</td>
 <td>{{p.method}}</td>
 </tr>
 {% endfor %}
+{% else %}
+<tr><td colspan="2">No payments</td></tr>
+{% endif %}
+
 </table>
 </div>
 

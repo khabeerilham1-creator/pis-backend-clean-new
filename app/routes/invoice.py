@@ -1,24 +1,23 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 from app.core.database import db
+from bson import ObjectId
+from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
-from datetime import datetime
-from bson import ObjectId
 
 router = APIRouter()
 
-# Collections
+invoices = db["invoices"]
 billing = db["billing"]
 payments = db["payments"]
-invoices = db["invoices"]
 
 
 # =========================
-# CREATE INVOICE (MANUAL SAVE)
+# CREATE INVOICE (MANUAL)
 # =========================
 @router.post("/invoice")
-async def create_invoice(data: dict):
+def create_invoice(data: dict):
 
     qty = float(data.get("qty", 0))
     rate = float(data.get("rate", 0))
@@ -56,15 +55,6 @@ def get_invoices():
 
 
 # =========================
-# UPDATE INVOICE
-# =========================
-@router.put("/invoice/{id}")
-async def update_invoice(id: str, data: dict):
-    invoices.update_one({"_id": ObjectId(id)}, {"$set": data})
-    return {"msg": "Updated"}
-
-
-# =========================
 # DELETE INVOICE
 # =========================
 @router.delete("/invoice/{id}")
@@ -74,38 +64,50 @@ def delete_invoice(id: str):
 
 
 # =========================
-# 🔥 GENERATE PDF
+# GENERATE PDF
 # =========================
 @router.get("/invoice-pdf/{patient_name}")
 def generate_invoice(patient_name: str):
 
-    bills = list(billing.find({"patient_name": patient_name}))
-    payments_data = list(payments.find({"patient_name": patient_name}))
+    try:
+        # FETCH DATA
+        bills = list(billing.find({"patient_name": patient_name}, {"_id": 0}))
+        pays = list(payments.find({"patient_name": patient_name}, {"_id": 0}))
 
-    total = sum([b.get("amount", 0) for b in bills])
-    paid = sum([p.get("amount", 0) for p in payments_data])
-    balance = total - paid
+        # SAFE DEFAULTS
+        if not bills:
+            bills = []
 
-    # LOAD TEMPLATE
-    env = Environment(loader=FileSystemLoader("templates"))
-    template = env.get_template("invoice.html")
+        if not pays:
+            pays = []
 
-    html_content = template.render(
-        name=patient_name,
-        bills=bills,
-        payments=payments_data,
-        total=total,
-        paid=paid,
-        balance=balance,
-        date=datetime.now().strftime("%d-%m-%Y")
-    )
+        total = sum([b.get("amount", 0) for b in bills])
+        paid = sum([p.get("amount", 0) for p in pays])
+        balance = total - paid
 
-    pdf = HTML(string=html_content).write_pdf()
+        # LOAD TEMPLATE
+        env = Environment(loader=FileSystemLoader("app/templates"))
+        template = env.get_template("invoice.html")
 
-    return Response(
-        content=pdf,
-        media_type="application/pdf",
-        headers={
-            "Content-Disposition": f"inline; filename=invoice_{patient_name}.pdf"
-        }
-    )
+        html_content = template.render(
+            name=patient_name,
+            date=datetime.now().strftime("%Y-%m-%d"),
+            bills=bills,
+            payments=pays,
+            total=total,
+            paid=paid,
+            balance=balance
+        )
+
+        # GENERATE PDF
+        pdf = HTML(string=html_content).write_pdf()
+
+        return Response(
+            content=pdf,
+            media_type="application/pdf",
+            headers={"Content-Disposition": "inline; filename=invoice.pdf"}
+        )
+
+    except Exception as e:
+        print("🔥 PDF ERROR:", e)
+        raise HTTPException(status_code=500, detail=str(e))
