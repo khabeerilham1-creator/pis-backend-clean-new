@@ -1,11 +1,11 @@
 from fastapi import APIRouter
 from app.core.database import db
-from app.auth.utils import create_access_token
 from passlib.context import CryptContext
+from app.auth.utils import create_access_token
 
 router = APIRouter()
-
 users = db["users"]
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
@@ -28,10 +28,16 @@ def register(data: dict):
 
 @router.post("/login")
 def login(data: dict):
-    user = users.find_one({"username": data["username"]})
+    user = users.find_one({"username": data.get("username")})
 
-    if not user or not verify_password(data["password"], user["password"]):
+    if not user:
         return {"error": "Invalid credentials"}
+
+    try:
+        if not verify_password(data.get("password"), user["password"]):
+            return {"error": "Invalid credentials"}
+    except:
+        return {"error": "Password error"}
 
     token = create_access_token({
         "id": str(user["_id"]),
