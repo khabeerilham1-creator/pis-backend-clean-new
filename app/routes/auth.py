@@ -11,6 +11,7 @@ users = db["users"]
 SECRET_KEY = "secret123"
 ALGORITHM = "HS256"
 
+# 🔥 safer config
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
@@ -20,18 +21,18 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 @router.post("/register")
 def register(data: dict):
 
+    username = data.get("username")
+    password = data.get("password")
+
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Missing fields")
+
+    # already exists
+    if users.find_one({"username": username}):
+        raise HTTPException(status_code=400, detail="User already exists")
+
     try:
-        username = data.get("username")
-        password = data.get("password")
-
-        if not username or not password:
-            raise HTTPException(status_code=400, detail="Missing fields")
-
-        # check existing
-        if users.find_one({"username": username}):
-            raise HTTPException(status_code=400, detail="User already exists")
-
-        # hash password
+        # 🔥 HASH PASSWORD (MAIN ERROR AREA)
         hashed_password = pwd_context.hash(password)
 
         users.insert_one({
@@ -42,8 +43,8 @@ def register(data: dict):
         return {"msg": "User created"}
 
     except Exception as e:
-        print("REGISTER ERROR:", e)
-        raise HTTPException(status_code=500, detail="Register failed")
+        print("🔥 REGISTER CRASH:", str(e))  # VERY IMPORTANT
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # =========================
@@ -52,15 +53,15 @@ def register(data: dict):
 @router.post("/login")
 def login(data: dict):
 
+    username = data.get("username")
+    password = data.get("password")
+
+    user = users.find_one({"username": username})
+
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found")
+
     try:
-        username = data.get("username")
-        password = data.get("password")
-
-        user = users.find_one({"username": username})
-
-        if not user:
-            raise HTTPException(status_code=400, detail="User not found")
-
         if not pwd_context.verify(password, user["password"]):
             raise HTTPException(status_code=400, detail="Wrong password")
 
@@ -74,5 +75,5 @@ def login(data: dict):
         return {"access_token": token}
 
     except Exception as e:
-        print("LOGIN ERROR:", e)
-        raise HTTPException(status_code=500, detail="Login failed")
+        print("🔥 LOGIN CRASH:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
