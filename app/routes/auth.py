@@ -11,7 +11,6 @@ users = db["users"]
 SECRET_KEY = "secret123"
 ALGORITHM = "HS256"
 
-# 🔥 safer config
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
@@ -27,13 +26,15 @@ def register(data: dict):
     if not username or not password:
         raise HTTPException(status_code=400, detail="Missing fields")
 
-    # already exists
+    # check existing
     if users.find_one({"username": username}):
         raise HTTPException(status_code=400, detail="User already exists")
 
     try:
-        # 🔥 HASH PASSWORD (MAIN ERROR AREA)
-        hashed_password = pwd_context.hash(password)
+        # 🔥 FIX bcrypt 72 byte issue
+        safe_password = password.encode("utf-8")[:72].decode("utf-8")
+
+        hashed_password = pwd_context.hash(safe_password)
 
         users.insert_one({
             "username": username,
@@ -43,7 +44,7 @@ def register(data: dict):
         return {"msg": "User created"}
 
     except Exception as e:
-        print("🔥 REGISTER CRASH:", str(e))  # VERY IMPORTANT
+        print("REGISTER ERROR:", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -56,13 +57,19 @@ def login(data: dict):
     username = data.get("username")
     password = data.get("password")
 
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="Missing fields")
+
     user = users.find_one({"username": username})
 
     if not user:
         raise HTTPException(status_code=400, detail="User not found")
 
     try:
-        if not pwd_context.verify(password, user["password"]):
+        # 🔥 SAME FIX FOR VERIFY
+        safe_password = password.encode("utf-8")[:72].decode("utf-8")
+
+        if not pwd_context.verify(safe_password, user["password"]):
             raise HTTPException(status_code=400, detail="Wrong password")
 
         payload = {
@@ -75,5 +82,5 @@ def login(data: dict):
         return {"access_token": token}
 
     except Exception as e:
-        print("🔥 LOGIN CRASH:", str(e))
+        print("LOGIN ERROR:", e)
         raise HTTPException(status_code=500, detail=str(e))
