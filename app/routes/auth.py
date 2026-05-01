@@ -1,25 +1,27 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from app.core.database import db
+from app.auth.utils import create_access_token
 from passlib.context import CryptContext
-from app.auth.utils import hash_password, verify_password, create_access_token
 
 router = APIRouter()
 
 users = db["users"]
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def verify_password(plain, hashed):
+    return pwd_context.verify(plain, hashed)
 
 
 @router.post("/register")
 def register(data: dict):
-    if users.find_one({"username": data["username"]}):
-        raise HTTPException(status_code=400, detail="User exists")
+    hashed = pwd_context.hash(data["password"])
 
-    data["password"] = hash_password(data["password"])
-
-    # default role if not sent
-    if "role" not in data:
-        data["role"] = "staff"
-
-    users.insert_one(data)
+    users.insert_one({
+        "username": data["username"],
+        "password": hashed,
+        "role": "admin"
+    })
 
     return {"msg": "User created"}
 
@@ -29,15 +31,15 @@ def login(data: dict):
     user = users.find_one({"username": data["username"]})
 
     if not user or not verify_password(data["password"], user["password"]):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+        return {"error": "Invalid credentials"}
 
     token = create_access_token({
         "id": str(user["_id"]),
         "username": user["username"],
-        "role": user["role"]
+        "role": user.get("role", "admin")
     })
 
     return {
         "access_token": token,
-        "role": user["role"]
+        "token_type": "bearer"
     }

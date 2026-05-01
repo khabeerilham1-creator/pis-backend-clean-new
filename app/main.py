@@ -2,9 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-# =========================
-# IMPORT ROUTES (match your filenames)
-# =========================
+# ROUTES
 from app.routes.patient import router as patients_router
 from app.routes.checkup import router as checkups_router
 from app.routes.afi import router as afi_router
@@ -14,24 +12,24 @@ from app.routes.timeline import router as timeline_router
 from app.routes.auth import router as auth_router
 from app.routes.report import router as report_router
 
-# =========================
-# INIT APP
-# =========================
 app = FastAPI(title="Clinic Management API")
 
 # =========================
-# CORS (frontend access)
+# 🔥 CORS FIX (IMPORTANT)
 # =========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # replace with your frontend domain later
+    allow_origins=[
+        "https://clinic-client-git-main-khabeerilham1-creators-projects.vercel.app",
+        "http://localhost:3000"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # =========================
-# STATIC FILES (uploads)
+# STATIC FILES (UPLOADS)
 # =========================
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
@@ -52,7 +50,7 @@ app.include_router(timeline_router, prefix="/api", tags=["Timeline"])
 # Auth
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 
-# Reports (PDF)
+# Reports
 app.include_router(report_router, prefix="/reports", tags=["Reports"])
 
 # =========================
@@ -60,10 +58,7 @@ app.include_router(report_router, prefix="/reports", tags=["Reports"])
 # =========================
 @app.get("/")
 def root():
-    return {
-        "status": "running",
-        "message": "Clinic API is live 🚀"
-    }
+    return {"status": "running", "message": "Clinic API is live 🚀"}
 
 # =========================
 # HEALTH CHECK

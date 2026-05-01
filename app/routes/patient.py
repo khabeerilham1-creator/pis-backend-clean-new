@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, UploadFile, File, Form
+from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from app.core.database import db
 from bson import ObjectId
 import shutil
@@ -21,6 +21,9 @@ print("🔥 patient router loaded")
 # =========================
 @router.get("/")
 def get_patients(user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
     result = []
     for p in patients.find():
         p["_id"] = str(p["_id"])
@@ -39,7 +42,6 @@ def create_patient(
     phone: str = Form(...),
     address: str = Form(...),
 
-    # optional fields (match your frontend)
     referral: str = Form(None),
     care_category: str = Form(None),
     conditions: str = Form(None),
@@ -56,6 +58,9 @@ def create_patient(
     xray: UploadFile = File(None),
     user=Depends(get_current_user)
 ):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
     data = {
         "name": name,
         "age": age,
@@ -76,16 +81,15 @@ def create_patient(
         "legal_consents": legal_consents
     }
 
-    # SAVE XRAY FILE
+    # SAVE XRAY FILE (SAFE)
     if xray:
-        file_path = f"{UPLOAD_FOLDER}/{xray.filename}"
+        file_path = os.path.join(UPLOAD_FOLDER, xray.filename)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(xray.file, buffer)
         data["xray"] = file_path
 
     result = patients.insert_one(data)
 
-    # 🔥 AUDIT LOG
     log_action(user, "create_patient", str(result.inserted_id), data)
 
     return {"msg": "Patient created"}
@@ -95,14 +99,15 @@ def create_patient(
 # UPDATE PATIENT
 # =========================
 @router.put("/{id}")
-def update_patient(
-    id: str,
-    data: dict,
-    user=Depends(get_current_user)
-):
+def update_patient(id: str, data: dict, user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    if not ObjectId.is_valid(id):
+        raise HTTPException(status_code=400, detail="Invalid ID")
+
     patients.update_one({"_id": ObjectId(id)}, {"$set": data})
 
-    # 🔥 AUDIT LOG
     log_action(user, "update_patient", id, data)
 
     return {"msg": "Updated"}
@@ -113,9 +118,14 @@ def update_patient(
 # =========================
 @router.delete("/{id}")
 def delete_patient(id: str, user=Depends(get_current_user)):
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    if not ObjectId.is_valid(id):
+        raise HTTPException(status_code=400, detail="Invalid ID")
+
     patients.delete_one({"_id": ObjectId(id)})
 
-    # 🔥 AUDIT LOG
     log_action(user, "delete_patient", id)
 
     return {"msg": "Deleted"}
