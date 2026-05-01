@@ -11,31 +11,51 @@ from app.routes.cis import router as cis_router
 from app.routes.timeline import router as timeline_router
 from app.routes.auth import router as auth_router
 from app.routes.report import router as report_router
+from app.routes.visits import router as visits_router   # ✅ ADDED
 
 app = FastAPI(title="Clinic Management API")
 
-# 🔥 CORS (UNBLOCK EVERYTHING FOR NOW)
+# =========================
+# 🔥 CORS
+# =========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],   # keep simple for now
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# =========================
 # STATIC FILES
+# =========================
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
+# =========================
 # ROUTES
-app.include_router(patients_router, prefix="/patients")
-app.include_router(checkups_router, prefix="/checkups")
-app.include_router(afi_router, prefix="/afi")
-app.include_router(fis_router, prefix="/fis")
-app.include_router(cis_router, prefix="/cis")
-app.include_router(timeline_router, prefix="/api")
-app.include_router(auth_router, prefix="/auth")
-app.include_router(report_router, prefix="/reports")
+# =========================
+app.include_router(patients_router, prefix="/patients", tags=["Patients"])
+app.include_router(checkups_router, prefix="/checkups", tags=["Checkups"])
+app.include_router(afi_router, prefix="/afi", tags=["Appointments"])
+app.include_router(fis_router, prefix="/fis", tags=["Finance"])
+app.include_router(cis_router, prefix="/cis", tags=["CIS"])
 
+app.include_router(visits_router, prefix="/visits", tags=["Visits"])   # ✅ ADDED
+
+app.include_router(timeline_router, prefix="/api", tags=["Timeline"])
+app.include_router(auth_router, prefix="/auth", tags=["Auth"])
+app.include_router(report_router, prefix="/reports", tags=["Reports"])
+
+# =========================
+# ROOT
+# =========================
 @app.get("/")
 def root():
-    return {"status": "running"}
+    return {"status": "running", "message": "Clinic API is live 🚀"}
+
+# =========================
+# HEALTH CHECK
+# =========================
+@app.get("/health")
+def health():
+    return {"ok": True}

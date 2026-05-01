@@ -1,38 +1,24 @@
-from fastapi import APIRouter
-from pydantic import BaseModel
-from datetime import datetime
+from fastapi import APIRouter, Depends
 from app.core.database import db
+from app.auth.deps import get_current_user
+from datetime import datetime
 
 router = APIRouter()
-visits_collection = db["visits"]
 
-class VisitCreate(BaseModel):
-    patient_name: str
-    diagnosis: str
-    treatment: str
-    teeth: list[int] = []
-    medicines: str
-    fee: int
+visits = db["visits"]
 
-@router.post("/visits")
-def add_visit(data: VisitCreate):
 
-    visits_collection.insert_one({
-        "patient_name": data.patient_name,
-        "diagnosis": data.diagnosis,
-        "treatment": data.treatment,
-        "teeth": data.teeth,
-        "medicines": data.medicines,
-        "fee": data.fee,
-        "date": datetime.now()
-    })
+@router.post("/")
+def create_visit(data: dict, user=Depends(get_current_user)):
+    data["created_at"] = datetime.utcnow()
+    visits.insert_one(data)
+    return {"msg": "Visit created"}
 
-    return {"msg": "Visit added"}
 
-@router.get("/visits/{patient_name}")
-def get_visits(patient_name: str):
-
-    return list(visits_collection.find(
-        {"patient_name": patient_name},
-        {"_id": 0}
-    ))
+@router.get("/")
+def get_visits(user=Depends(get_current_user)):
+    result = []
+    for v in visits.find():
+        v["_id"] = str(v["_id"])
+        result.append(v)
+    return result
