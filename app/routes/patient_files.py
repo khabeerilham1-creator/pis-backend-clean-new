@@ -22,7 +22,7 @@ def build_patient_file(patient_id: str):
 
     year = str(datetime.utcnow().year)
 
-    # 🔥 SAFE FIND (ObjectId + string)
+    # 🔥 SAFE FIND PATIENT
     patient = None
 
     try:
@@ -94,11 +94,12 @@ def get_files_by_year(year: str):
 
 
 # =========================
-# GET SINGLE PATIENT FILE (🔥 FINAL FIX)
+# GET SINGLE PATIENT FILE (FIXED)
 # =========================
 @router.get("/file/{patient_id}/{year}")
 def get_patient_file(patient_id: str, year: str):
 
+    # 🔥 HANDLE BOTH TYPES
     try:
         patient_obj = ObjectId(patient_id)
     except:
@@ -107,8 +108,8 @@ def get_patient_file(patient_id: str, year: str):
     file = patient_files.find_one({
         "year": str(year),
         "$or": [
-            {"patient_id": str(patient_id)},
-            {"patient_id": patient_obj}
+            {"patient_id": str(patient_id)},   # string match
+            {"patient_id": patient_obj}        # ObjectId match
         ]
     })
 
