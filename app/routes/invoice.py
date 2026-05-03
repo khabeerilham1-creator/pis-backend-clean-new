@@ -6,6 +6,8 @@ from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
+from app.modules.timeline import add_to_timeline  # ✅ ADDED
+
 router = APIRouter()
 
 invoices = db["invoices"]
@@ -39,6 +41,19 @@ def create_invoice(data: dict):
     }
 
     res = invoices.insert_one(invoice)
+
+    # ✅ ADDED
+    add_to_timeline(
+        patient_id=data.get("patient_id"),
+        event_type="invoice",
+        ref_id=str(res.inserted_id),
+        data={
+            "amount": total,
+            "paid": p1 + p2,
+            "balance": total - (p1 + p2)
+        }
+    )
+
     return {"id": str(res.inserted_id)}
 
 
@@ -70,11 +85,9 @@ def delete_invoice(id: str):
 def generate_invoice(patient_name: str):
 
     try:
-        # FETCH DATA
         bills = list(billing.find({"patient_name": patient_name}, {"_id": 0}))
         pays = list(payments.find({"patient_name": patient_name}, {"_id": 0}))
 
-        # SAFE DEFAULTS
         if not bills:
             bills = []
 
@@ -85,7 +98,6 @@ def generate_invoice(patient_name: str):
         paid = sum([p.get("amount", 0) for p in pays])
         balance = total - paid
 
-        # LOAD TEMPLATE
         env = Environment(loader=FileSystemLoader("app/templates"))
         template = env.get_template("invoice.html")
 
@@ -99,7 +111,6 @@ def generate_invoice(patient_name: str):
             balance=balance
         )
 
-        # GENERATE PDF
         pdf = HTML(string=html_content).write_pdf()
 
         return Response(

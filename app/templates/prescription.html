@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+
+<style>
+body { font-family: Arial; padding:25px; }
+
+h1 {
+    text-align:center;
+    color:#1a3c6e;
+}
+
+.section {
+    border:1px solid #d0d7e2;
+    margin-top:15px;
+}
+
+.title {
+    background:#e8f0fe;
+    color:#1a3c6e;
+    padding:8px;
+    font-weight:bold;
+}
+
+table {
+    width:100%;
+    border-collapse:collapse;
+}
+
+td, th {
+    border:1px solid #d0d7e2;
+    padding:6px;
+    text-align:center;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>HDC – Holistic Domain of Creativity</h1>
+
+<p>
+Date: {{date}} | 
+Patient: {{patient.name}} | 
+Phone: {{patient.phone}}
+</p>
+
+<div class="section">
+<div class="title">PRESCRIPTION DETAILS</div>
+
+<table>
+<tr>
+<th>Medicine</th>
+<th>Dosage</th>
+<th>Duration</th>
+</tr>
+
+{% if medicines %}
+{% for m in medicines %}
+<tr>
+<td>{{m.name}}</td>
+<td>{{m.dosage}}</td>
+<td>{{m.duration}}</td>
+</tr>
+{% endfor %}
+{% else %}
+<tr><td colspan="3">No medicines added</td></tr>
+{% endif %}
+
+</table>
+</div>
+
+<div class="section">
+<div class="title">DOCTOR NOTES</div>
+
+<table>
+<tr>
+<td>{{notes}}</td>
+</tr>
+</table>
+
+</div>
+
+<div style="margin-top:50px; text-align:right;">
+_________________________<br/>
+Doctor Signature
+</div>
+
+</body>
+</html>

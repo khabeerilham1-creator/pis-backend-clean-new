@@ -3,15 +3,24 @@ from app.models.fis_model import billing_collection, payments_collection
 from app.schemas.fis_schema import BillingCreate, PaymentCreate, DiscountCreate
 from datetime import datetime
 
+from app.modules.timeline import add_to_timeline
+from app.modules.file_sync import sync_patient_file
+from app.utils.get_patient import get_patient_id_by_phone
+
 router = APIRouter()
 
-# =========================
-# 1. BILLING ENGINE
-# =========================
+
 @router.post("/billing")
 def create_bill(data: BillingCreate):
 
     record = data.dict()
+
+    # ✅ AUTO LINK BY PHONE
+    if not record.get("patient_id"):
+        record["patient_id"] = get_patient_id_by_phone(record.get("phone"))
+
+    # 🔥 FIX: FORCE STRING
+    record["patient_id"] = str(record.get("patient_id"))
 
     record["created_at"] = datetime.utcnow()
     record["discount"] = 0
@@ -19,6 +28,18 @@ def create_bill(data: BillingCreate):
     record["balance"] = data.amount
 
     billing_collection.insert_one(record)
+
+    add_to_timeline(
+        patient_id=record.get("patient_id"),
+        event_type="billing",
+        data={
+            "amount": record.get("amount"),
+            "balance": record.get("balance")
+        }
+    )
+
+    # 🔥 MAIN FIX (THIS BUILDS FILE)
+    sync_patient_file(record.get("patient_id"))
 
     return {"message": "Billing added successfully"}
 
@@ -28,9 +49,6 @@ def get_bills(patient_name: str):
     return list(billing_collection.find({"patient_name": patient_name}, {"_id": 0}))
 
 
-# =========================
-# 2. DISCOUNT GOVERNANCE
-# =========================
 @router.post("/discount")
 def apply_discount(data: DiscountCreate):
 
@@ -58,22 +76,37 @@ def apply_discount(data: DiscountCreate):
     return {"message": "Discount applied successfully"}
 
 
-# =========================
-# 3. PAYMENT TRACKING (INSTALLMENTS)
-# =========================
 @router.post("/payment")
 def add_payment(data: PaymentCreate):
 
-    # Save payment
+    # ✅ AUTO LINK BY PHONE
+    if not getattr(data, "patient_id", None):
+        data.patient_id = get_patient_id_by_phone(getattr(data, "phone", None))
+
+    # 🔥 FIX: FORCE STRING
+    patient_id = str(getattr(data, "patient_id", None))
+
     payments_collection.insert_one({
         "patient_name": data.patient_name,
         "amount": data.amount,
         "method": data.method,
         "note": data.note,
-        "date": datetime.utcnow()
+        "date": datetime.utcnow(),
+        "patient_id": patient_id   # 🔥 VERY IMPORTANT
     })
 
-    # Update billing
+    add_to_timeline(
+        patient_id=patient_id,
+        event_type="payment",
+        data={
+            "amount": data.amount,
+            "method": data.method
+        }
+    )
+
+    # 🔥 MAIN FIX
+    sync_patient_file(patient_id)
+
     bills = list(billing_collection.find({"patient_name": data.patient_name}))
 
     for bill in bills:
@@ -104,9 +137,6 @@ def get_payments(patient_name: str):
     return list(payments_collection.find({"patient_name": patient_name}, {"_id": 0}))
 
 
-# =========================
-# 4. BALANCE SYSTEM (NEW)
-# =========================
 @router.get("/balance/{patient_name}")
 def get_balance(patient_name: str):
 
@@ -126,9 +156,6 @@ def get_balance(patient_name: str):
     }
 
 
-# =========================
-# 5. REVENUE ALLOCATION
-# =========================
 @router.get("/revenue/{patient_name}")
 def revenue_split(patient_name: str):
 
@@ -144,9 +171,6 @@ def revenue_split(patient_name: str):
     }
 
 
-# =========================
-# 6. ANALYTICS
-# =========================
 @router.get("/analytics/daily")
 def daily_revenue():
 

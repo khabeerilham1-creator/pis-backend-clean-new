@@ -1,8 +1,10 @@
+from app.modules.file_sync import sync_patient_file
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
 from app.core.database import db
 from bson import ObjectId
 import shutil
 import os
+from datetime import datetime
 
 from app.auth.deps import get_current_user
 from app.utils.audit import log_action
@@ -78,17 +80,27 @@ def create_patient(
         "habits": habits,
         "signed_forms": signed_forms,
         "estimates": estimates,
-        "legal_consents": legal_consents
+        "legal_consents": legal_consents,
+        "created_at": datetime.utcnow()
     }
 
-    # SAVE XRAY FILE (SAFE)
+    # SAVE XRAY
     if xray:
-        file_path = os.path.join(UPLOAD_FOLDER, xray.filename)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(xray.file, buffer)
-        data["xray"] = file_path
+        try:
+            file_path = os.path.join(UPLOAD_FOLDER, xray.filename)
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(xray.file, buffer)
+
+            data["xray"] = file_path
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
 
     result = patients.insert_one(data)
+
+    # 🔥 IMPORTANT → USE ONLY patient_id (SAFE)
+    sync_patient_file(
+        patient_id=str(result.inserted_id)
+    )
 
     log_action(user, "create_patient", str(result.inserted_id), data)
 
@@ -107,6 +119,9 @@ def update_patient(id: str, data: dict, user=Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Invalid ID")
 
     patients.update_one({"_id": ObjectId(id)}, {"$set": data})
+
+    # 🔥 SYNC AFTER UPDATE
+    sync_patient_file(patient_id=id)
 
     log_action(user, "update_patient", id, data)
 
