@@ -15,14 +15,14 @@ timeline = db["timeline"]
 
 
 # =========================
-# BUILD / UPDATE FILE (GET for browser)
+# BUILD / UPDATE FILE
 # =========================
 @router.get("/build/{patient_id}")
 def build_patient_file(patient_id: str):
 
     year = str(datetime.utcnow().year)
 
-    # 🔥 SAFE FIND (ObjectId + string support)
+    # 🔥 SAFE FIND (ObjectId + string)
     patient = None
 
     try:
@@ -36,17 +36,28 @@ def build_patient_file(patient_id: str):
     if not patient:
         return {"msg": "Patient not found"}
 
-    # 🔥 FORCE STRING ID
     patient_id = str(patient["_id"])
 
-    # collect all data
+    # 🔥 HANDLE BOTH STRING + OBJECTID
+    try:
+        patient_obj = ObjectId(patient_id)
+    except:
+        patient_obj = None
+
+    query = {
+        "$or": [
+            {"patient_id": patient_id},
+            {"patient_id": patient_obj}
+        ]
+    }
+
     data = {
         "patient_info": patient,
-        "checkups": list(checkups.find({"patient_id": patient_id}, {"_id": 0})),
-        "visits": list(visits.find({"patient_id": patient_id}, {"_id": 0})),
-        "billing": list(billing.find({"patient_id": patient_id}, {"_id": 0})),
-        "payments": list(payments.find({"patient_id": patient_id}, {"_id": 0})),
-        "timeline": list(timeline.find({"patient_id": patient_id}, {"_id": 0}))
+        "checkups": list(checkups.find(query, {"_id": 0})),
+        "visits": list(visits.find(query, {"_id": 0})),
+        "billing": list(billing.find(query, {"_id": 0})),
+        "payments": list(payments.find(query, {"_id": 0})),
+        "timeline": list(timeline.find(query, {"_id": 0}))
     }
 
     # remove Mongo _id
@@ -83,14 +94,22 @@ def get_files_by_year(year: str):
 
 
 # =========================
-# GET SINGLE PATIENT FILE
+# GET SINGLE PATIENT FILE (🔥 FINAL FIX)
 # =========================
 @router.get("/file/{patient_id}/{year}")
 def get_patient_file(patient_id: str, year: str):
 
+    try:
+        patient_obj = ObjectId(patient_id)
+    except:
+        patient_obj = None
+
     file = patient_files.find_one({
-        "patient_id": str(patient_id),
-        "year": str(year)
+        "year": str(year),
+        "$or": [
+            {"patient_id": str(patient_id)},
+            {"patient_id": patient_obj}
+        ]
     })
 
     if not file:
