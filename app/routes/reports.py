@@ -1,65 +1,62 @@
 from fastapi import APIRouter
-from fastapi.responses import FileResponse
 from app.core.database import db
 from bson import ObjectId
-from datetime import datetime
-from jinja2 import Environment, FileSystemLoader
-from weasyprint import HTML
-import os
 
 router = APIRouter()
 
 patients = db["patients"]
 checkups = db["checkups"]
+billing = db["billing"]
 visits = db["visits"]
 
-# ===== PATH FIX (IMPORTANT FOR RENDER) =====
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-TEMPLATE_DIR = os.path.join(BASE_DIR, "templates")
-STATIC_DIR = os.path.join(BASE_DIR, "static")
-UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+# =========================
+# GET FULL PATIENT REPORT
+# =========================
+@router.get("/report/{query}")
+def get_report(query: str):
 
-env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
+    patient = None
 
+    # 🔥 1. TRY OBJECT ID
+    if ObjectId.is_valid(query):
+        patient = patients.find_one({"_id": ObjectId(query)})
 
-@router.get("/{id}")
-def generate_report(id: str):
+    # 🔥 2. TRY NAME
+    if not patient:
+        patient = patients.find_one({"name": query})
 
-    if not ObjectId.is_valid(id):
-        return {"error": "Invalid ID"}
+    # 🔥 3. TRY PHONE
+    if not patient:
+        patient = patients.find_one({"phone": query})
 
-    patient = patients.find_one({"_id": ObjectId(id)})
     if not patient:
         return {"error": "Patient not found"}
 
-    patient_checkups = list(checkups.find({"patient_id": id}))
-    patient_visits = list(visits.find({"patient_id": id}))
+    patient_id = str(patient["_id"])
 
-    tasks = []
-    chief = ""
+    # =========================
+    # FETCH RELATED DATA
+    # =========================
+    patient_checkups = list(checkups.find({"patient": patient_id}))
+    patient_visits = list(visits.find({"patient": patient_id}))
+    patient_bills = list(billing.find({"patient_name": patient.get("name")}))
 
-    for c in patient_checkups:
-        tasks.extend(c.get("tasks", []))
-        chief = c.get("complaint", "")
+    # =========================
+    # CLEAN OBJECT IDs
+    # =========================
+    def clean(data):
+        for d in data:
+            d["_id"] = str(d["_id"])
+        return data
 
-    tooth_path = os.path.join(STATIC_DIR, "teeth.png")
-
-    template = env.get_template("report.html")
-
-    html_content = template.render(
-        date=datetime.now().strftime("%d-%b-%Y"),
-        time=datetime.now().strftime("%I:%M %p"),
-        patient=patient,
-        checkup_tasks=tasks,
-        chief_complaint=chief,
-        visits=patient_visits,
-        tooth_image=tooth_path
-    )
-
-    file_path = os.path.join(UPLOAD_DIR, f"report_{id}.pdf")
-
-    HTML(string=html_content, base_url=BASE_DIR).write_pdf(file_path)
-
-    return FileResponse(file_path, media_type="application/pdf")
+    return {
+        "patient": {
+            "_id": patient_id,
+            "name": patient.get("name"),
+            "phone": patient.get("phone")
+        },
+        "checkups": clean(patient_checkups),
+        "visits": clean(patient_visits),
+        "billing": clean(patient_bills)
+    }

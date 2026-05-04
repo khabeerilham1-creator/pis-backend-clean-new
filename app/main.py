@@ -21,8 +21,6 @@ from app.routes.ai import router as ai_router
 from app.routes.upload import router as upload_router
 from app.routes.prescription import router as prescription_router
 
-# 🔥 NEW IMPORT (ONLY ADDED)
-from app.routes.patient_file_pdf import router as patient_file_pdf_router
 
 # =========================
 # APP INIT
@@ -31,11 +29,11 @@ app = FastAPI(title="Clinic Management API")
 
 
 # =========================
-# CORS (ALLOW FRONTEND)
+# CORS (IMPORTANT)
 # =========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],   # ⚠️ restrict in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -54,25 +52,27 @@ app.include_router(visits_router, prefix="/visits", tags=["Visits"])
 app.include_router(afi_router, prefix="/afi", tags=["AFI"])
 app.include_router(cis_router, prefix="/cis", tags=["CIS"])
 
-app.include_router(fis_router, prefix="/fis", tags=["Finance"])
-
-app.include_router(invoice_router, tags=["Invoice"])
-app.include_router(reports_router, prefix="/reports", tags=["Reports"])
+# 🔥 FINANCE SYSTEM
+app.include_router(fis_router, prefix="/fis", tags=["FIS"])
+app.include_router(invoice_router, prefix="/invoice", tags=["Invoice"])
 app.include_router(lvi_router, prefix="/lvi", tags=["LVI"])
 
-app.include_router(timeline_router, prefix="/timeline", tags=["Timeline"])
+# 🔥 REPORTS + FILES
+app.include_router(reports_router, prefix="/reports", tags=["Reports"])
 app.include_router(patient_files_router, prefix="/patient-files", tags=["Patient Files"])
 
-app.include_router(dashboard_router, prefix="/dashboard", tags=["Dashboard"])
-app.include_router(ai_router, prefix="/ai", tags=["AI"])
+# 🔥 TIMELINE
+app.include_router(timeline_router, prefix="/timeline", tags=["Timeline"])
 
+# 🔥 DASHBOARD (VERY IMPORTANT)
+app.include_router(dashboard_router, prefix="/dashboard", tags=["Dashboard"])
+
+# 🔥 AI + UPLOAD
+app.include_router(ai_router, prefix="/ai", tags=["AI"])
 app.include_router(upload_router, prefix="/upload", tags=["Upload"])
 
-# ✅ PRESCRIPTION ROUTE
+# 🔥 PRESCRIPTION
 app.include_router(prescription_router, prefix="/prescription", tags=["Prescription"])
-
-# 🔥 PDF ROUTE (ONLY ADDED)
-app.include_router(patient_file_pdf_router)
 
 
 # =========================
@@ -83,6 +83,9 @@ def root():
     return {"msg": "Clinic API Running 🚀"}
 
 
+# =========================
+# HEALTH CHECK
+# =========================
 @app.get("/health")
 def health():
     return {"status": "ok"}

@@ -6,7 +6,7 @@ from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
-from app.modules.timeline import add_to_timeline  # ✅ ADDED
+from app.modules.timeline import add_to_timeline
 
 router = APIRouter()
 
@@ -16,9 +16,9 @@ payments = db["payments"]
 
 
 # =========================
-# CREATE INVOICE (MANUAL)
+# CREATE INVOICE (FIXED PATH)
 # =========================
-@router.post("/invoice")
+@router.post("/")   # ✅ FIXED
 def create_invoice(data: dict):
 
     qty = float(data.get("qty", 0))
@@ -42,7 +42,6 @@ def create_invoice(data: dict):
 
     res = invoices.insert_one(invoice)
 
-    # ✅ ADDED
     add_to_timeline(
         patient_id=data.get("patient_id"),
         event_type="invoice",
@@ -58,9 +57,9 @@ def create_invoice(data: dict):
 
 
 # =========================
-# GET ALL INVOICES
+# GET ALL
 # =========================
-@router.get("/invoices")
+@router.get("/")   # ✅ FIXED
 def get_invoices():
     data = []
     for i in invoices.find():
@@ -70,29 +69,23 @@ def get_invoices():
 
 
 # =========================
-# DELETE INVOICE
+# DELETE
 # =========================
-@router.delete("/invoice/{id}")
+@router.delete("/{id}")   # ✅ FIXED
 def delete_invoice(id: str):
     invoices.delete_one({"_id": ObjectId(id)})
     return {"msg": "Deleted"}
 
 
 # =========================
-# GENERATE PDF
+# PDF (KEEP SAME)
 # =========================
-@router.get("/invoice-pdf/{patient_name}")
+@router.get("/pdf/{patient_name}")   # ✅ FIXED
 def generate_invoice(patient_name: str):
 
     try:
         bills = list(billing.find({"patient_name": patient_name}, {"_id": 0}))
         pays = list(payments.find({"patient_name": patient_name}, {"_id": 0}))
-
-        if not bills:
-            bills = []
-
-        if not pays:
-            pays = []
 
         total = sum([b.get("amount", 0) for b in bills])
         paid = sum([p.get("amount", 0) for p in pays])
@@ -120,5 +113,4 @@ def generate_invoice(patient_name: str):
         )
 
     except Exception as e:
-        print("🔥 PDF ERROR:", e)
         raise HTTPException(status_code=500, detail=str(e))

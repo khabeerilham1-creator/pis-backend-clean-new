@@ -4,10 +4,9 @@ from datetime import datetime, timedelta
 
 router = APIRouter()
 
+billing = db["billing"]
 patients = db["patients"]
 checkups = db["checkups"]
-billing = db["billing"]
-payments = db["payments"]
 
 
 # =========================
@@ -19,22 +18,39 @@ def dashboard():
     total_patients = patients.count_documents({})
     total_checkups = checkups.count_documents({})
 
-    total_revenue = sum([p.get("amount", 0) for p in payments.find()])
-    total_billing = sum([b.get("amount", 0) for b in billing.find()])
+    bills = list(billing.find())
+
+    total_revenue = sum([
+        float(b.get("amount", 0))
+        for b in bills
+    ])
+
+    total_lab = sum([
+        float(b.get("lab_charge", 0))
+        for b in bills
+    ])
+
+    doctor = total_revenue * 0.25
+    owner = total_revenue - doctor - total_lab
 
     return {
-        "total_patients": total_patients,
-        "total_checkups": total_checkups,
-        "total_revenue": total_revenue,
-        "total_billing": total_billing
+        "patients": total_patients,
+        "checkups": total_checkups,
+        "revenue": total_revenue,
+
+        "split": {
+            "doctor": round(doctor, 2),
+            "lab": round(total_lab, 2),
+            "owner": round(owner, 2)
+        }
     }
 
 
 # =========================
-# DAILY STATS
+# DAILY (THIS WAS MISSING → 404)
 # =========================
 @router.get("/daily")
-def daily_stats():
+def daily():
 
     today = datetime.utcnow().date()
     start = datetime(today.year, today.month, today.day)
@@ -44,75 +60,16 @@ def daily_stats():
         "created_at": {"$gte": start, "$lt": end}
     })
 
-    daily_checkups = checkups.count_documents({
+    bills = list(billing.find({
         "created_at": {"$gte": start, "$lt": end}
-    })
+    }))
 
     daily_revenue = sum([
-        p.get("amount", 0)
-        for p in payments.find({
-            "date": {"$gte": start, "$lt": end}
-        })
+        float(b.get("amount", 0))
+        for b in bills
     ])
 
     return {
-        "daily_patients": daily_patients,
-        "daily_checkups": daily_checkups,
-        "daily_revenue": daily_revenue
+        "today_patients": daily_patients,
+        "today_revenue": daily_revenue
     }
-
-
-# =========================
-# MONTHLY STATS
-# =========================
-@router.get("/monthly")
-def monthly_stats():
-
-    now = datetime.utcnow()
-    start = datetime(now.year, now.month, 1)
-
-    if now.month == 12:
-        end = datetime(now.year + 1, 1, 1)
-    else:
-        end = datetime(now.year, now.month + 1, 1)
-
-    monthly_revenue = sum([
-        p.get("amount", 0)
-        for p in payments.find({
-            "date": {"$gte": start, "$lt": end}
-        })
-    ])
-
-    monthly_checkups = checkups.count_documents({
-        "created_at": {"$gte": start, "$lt": end}
-    })
-
-    return {
-        "monthly_revenue": monthly_revenue,
-        "monthly_checkups": monthly_checkups
-    }
-
-
-# =========================
-# GROWTH (LAST 7 DAYS)
-# =========================
-@router.get("/growth")
-def growth():
-
-    data = []
-
-    for i in range(7):
-        day = datetime.utcnow().date() - timedelta(days=i)
-        start = datetime(day.year, day.month, day.day)
-        end = start + timedelta(days=1)
-
-        count = checkups.count_documents({
-            "created_at": {"$gte": start, "$lt": end}
-        })
-
-        data.append({
-            "date": str(day),
-            "checkups": count
-        })
-
-    return list(reversed(data))
