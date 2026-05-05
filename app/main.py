@@ -21,6 +21,16 @@ from app.routes.ai import router as ai_router
 from app.routes.upload import router as upload_router
 from app.routes.prescription import router as prescription_router
 
+# 🔥 NEW MODULES
+from app.routes.hai import router as hai_router
+from app.routes.debtors import router as debtors_router
+from app.routes.creditors import router as creditors_router
+from app.routes.bills import router as bills_router
+from app.routes.acc import router as acc_router
+
+# 🔥🔥 NEW REALTIME ROUTER (ADDED ONLY)
+from app.routes.acc_ws import router as acc_ws_router
+
 
 # =========================
 # APP INIT
@@ -29,11 +39,15 @@ app = FastAPI(title="Clinic Management API")
 
 
 # =========================
-# CORS (IMPORTANT)
+# CORS (🔥 FIXED FOR DOMAIN)
 # =========================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # ⚠️ restrict in production
+    allow_origins=[
+        "https://drzaffariqbal.com",
+        "https://www.drzaffariqbal.com",
+        "http://localhost:3000"  # ✅ keep for local testing
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -43,6 +57,7 @@ app.add_middleware(
 # =========================
 # ROUTES
 # =========================
+
 app.include_router(auth_router, prefix="/auth", tags=["Auth"])
 
 app.include_router(patients_router, prefix="/patients", tags=["Patients"])
@@ -52,27 +67,29 @@ app.include_router(visits_router, prefix="/visits", tags=["Visits"])
 app.include_router(afi_router, prefix="/afi", tags=["AFI"])
 app.include_router(cis_router, prefix="/cis", tags=["CIS"])
 
-# 🔥 FINANCE SYSTEM
 app.include_router(fis_router, prefix="/fis", tags=["FIS"])
 app.include_router(invoice_router, prefix="/invoice", tags=["Invoice"])
 app.include_router(lvi_router, prefix="/lvi", tags=["LVI"])
 
-# 🔥 REPORTS + FILES
 app.include_router(reports_router, prefix="/reports", tags=["Reports"])
 app.include_router(patient_files_router, prefix="/patient-files", tags=["Patient Files"])
 
-# 🔥 TIMELINE
 app.include_router(timeline_router, prefix="/timeline", tags=["Timeline"])
-
-# 🔥 DASHBOARD (VERY IMPORTANT)
 app.include_router(dashboard_router, prefix="/dashboard", tags=["Dashboard"])
 
-# 🔥 AI + UPLOAD
 app.include_router(ai_router, prefix="/ai", tags=["AI"])
 app.include_router(upload_router, prefix="/upload", tags=["Upload"])
 
-# 🔥 PRESCRIPTION
 app.include_router(prescription_router, prefix="/prescription", tags=["Prescription"])
+
+app.include_router(hai_router, prefix="/hai", tags=["HAI"])
+app.include_router(debtors_router, prefix="/debtors", tags=["Debtors"])
+app.include_router(creditors_router, prefix="/creditors", tags=["Creditors"])
+app.include_router(bills_router, prefix="/bills", tags=["Bills"])
+app.include_router(acc_router, prefix="/acc", tags=["ACC"])
+
+# 🔥 REALTIME ROUTE (ADDED)
+app.include_router(acc_ws_router, prefix="/acc")
 
 
 # =========================
@@ -83,9 +100,6 @@ def root():
     return {"msg": "Clinic API Running 🚀"}
 
 
-# =========================
-# HEALTH CHECK
-# =========================
 @app.get("/health")
 def health():
     return {"status": "ok"}

@@ -39,10 +39,11 @@ td, th {
 
 <body>
 
-<h1>Singularity Dental & Aesthetics</h1>
+<h1>HDC Holistic Domain of Creativity</h1>
 
-<p>Date: {{date}} | Patient: {{name}}</p>
+<p><b>Date:</b> {{date}} | <b>Patient:</b> {{name}}</p>
 
+<!-- BILLING -->
 <div class="section">
 <div class="title">BILLING DETAILS</div>
 
@@ -70,11 +71,15 @@ td, th {
 </table>
 </div>
 
+<!-- PAYMENTS -->
 <div class="section">
 <div class="title">PAYMENTS</div>
 
 <table>
-<tr><th>Amount</th><th>Method</th></tr>
+<tr>
+<th>Amount</th>
+<th>Method</th>
+</tr>
 
 {% if payments %}
 {% for p in payments %}
@@ -90,11 +95,13 @@ td, th {
 </table>
 </div>
 
+<!-- SUMMARY -->
 <div class="section">
 <div class="title">SUMMARY</div>
 
 <table>
 <tr><td>Total</td><td>{{total}}</td></tr>
+<tr><td>Discount</td><td>{{discount}}</td></tr>
 <tr><td>Paid</td><td>{{paid}}</td></tr>
 <tr><td><b>Balance</b></td><td><b>{{balance}}</b></td></tr>
 </table>

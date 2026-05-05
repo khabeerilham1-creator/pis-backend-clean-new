@@ -12,6 +12,7 @@ visits = db["visits"]
 billing = db["billing"]
 payments = db["payments"]
 timeline = db["timeline"]
+invoices = db["invoices"]   # ✅ ADDED
 
 
 # =========================
@@ -22,46 +23,32 @@ def build_patient_file(patient_id: str):
 
     year = str(datetime.utcnow().year)
 
-    # 🔥 SAFE FIND PATIENT
-    patient = None
-
     try:
         patient = patients.find_one({"_id": ObjectId(patient_id)})
     except:
-        pass
-
-    if not patient:
-        patient = patients.find_one({"_id": patient_id})
+        patient = None
 
     if not patient:
         return {"msg": "Patient not found"}
 
-    patient_id = str(patient["_id"])
-
-    # 🔥 HANDLE BOTH STRING + OBJECTID
-    try:
-        patient_obj = ObjectId(patient_id)
-    except:
-        patient_obj = None
+    patient["_id"] = str(patient["_id"])
 
     query = {
         "$or": [
             {"patient_id": patient_id},
-            {"patient_id": patient_obj}
+            {"patient": patient_id}
         ]
     }
 
     data = {
         "patient_info": patient,
-        "checkups": list(checkups.find(query, {"_id": 0})),
-        "visits": list(visits.find(query, {"_id": 0})),
-        "billing": list(billing.find(query, {"_id": 0})),
-        "payments": list(payments.find(query, {"_id": 0})),
-        "timeline": list(timeline.find(query, {"_id": 0}))
+        "checkups": list(checkups.find({"patient": patient_id})),
+        "visits": list(visits.find({"patient": patient_id})),
+        "billing": list(billing.find({"patient_name": patient.get("name")})),
+        "payments": list(payments.find({"patient_name": patient.get("name")})),
+        "timeline": list(timeline.find({"patient_id": patient_id})),
+        "invoices": list(invoices.find({"patient_id": patient_id}))   # ✅ ADDED
     }
-
-    # remove Mongo _id
-    data["patient_info"].pop("_id", None)
 
     patient_files.update_one(
         {"patient_id": patient_id, "year": year},
@@ -80,48 +67,44 @@ def build_patient_file(patient_id: str):
 
 
 # =========================
-# GET FILES BY YEAR
+# GET SINGLE PATIENT FILE (FIXED FOR FRONTEND)
 # =========================
-@router.get("/{year}")
-def get_files_by_year(year: str):
+@router.get("/{patient_id}")
+def get_patient_file_simple(patient_id: str):
 
-    result = []
-    for f in patient_files.find({"year": str(year)}):
-        f["_id"] = str(f["_id"])
-        result.append(f)
+    year = str(datetime.utcnow().year)
 
-    return result
-
-
-# =========================
-# GET SINGLE PATIENT FILE (FIXED)
-# =========================
-@router.get("/file/{patient_id}/{year}")
-def get_patient_file(patient_id: str, year: str):
-
-    # 🔥 HANDLE BOTH TYPES
     try:
         patient_obj = ObjectId(patient_id)
     except:
         patient_obj = None
 
     file = patient_files.find_one({
-        "year": str(year),
+        "year": year,
         "$or": [
-            {"patient_id": str(patient_id)},   # string match
-            {"patient_id": patient_obj}        # ObjectId match
+            {"patient_id": patient_id},
+            {"patient_id": patient_obj}
         ]
     })
 
     if not file:
         return {"msg": "Not found"}
 
-    file["_id"] = str(file["_id"])
-    return file
+    data = file.get("data", {})
+
+    # 🔥 NORMALIZED RESPONSE (FRONTEND FRIENDLY)
+    return {
+        "patient": data.get("patient_info", {}),
+        "patient_id": patient_id,
+        "checkups": data.get("checkups", []),
+        "visits": data.get("visits", []),
+        "invoices": data.get("invoices", []),
+        "timeline": data.get("timeline", [])
+    }
 
 
 # =========================
-# SEARCH (NAME / PHONE)
+# SEARCH
 # =========================
 @router.get("/search/{query}")
 def search_files(query: str):
@@ -139,21 +122,3 @@ def search_files(query: str):
             result.append(f)
 
     return result
-
-
-# =========================
-# MANUAL ADD FILE
-# =========================
-@router.post("/manual")
-def manual_file(data: dict):
-
-    year = str(datetime.utcnow().year)
-
-    patient_files.insert_one({
-        "patient_id": str(data.get("patient_id")),
-        "year": year,
-        "data": data,
-        "created_at": datetime.utcnow()
-    })
-
-    return {"msg": "Manual file added"}

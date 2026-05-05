@@ -6,60 +6,91 @@ from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
 
-from app.modules.timeline import add_to_timeline
-
 router = APIRouter()
 
 invoices = db["invoices"]
-billing = db["billing"]
-payments = db["payments"]
-
 
 # =========================
-# CREATE INVOICE (FIXED PATH)
+# CREATE
 # =========================
-@router.post("/")   # ✅ FIXED
+@router.post("/")
 def create_invoice(data: dict):
 
-    qty = float(data.get("qty", 0))
-    rate = float(data.get("rate", 0))
+    patient_name = data.get("patient_name")
+    rows = data.get("rows", [])
+    payments = data.get("payments", [])
+    discount = float(data.get("discount", 0))
 
-    total = qty * rate
+    if not patient_name:
+        raise HTTPException(status_code=400, detail="Patient required")
 
-    p1 = float(data.get("payment1", 0))
-    p2 = float(data.get("payment2", 0))
+    total = sum(float(r.get("rate", 0)) for r in rows)
+    paid = sum(float(p.get("amount", 0)) for p in payments)
+
+    final = total - discount
+
+    # 🔥 YOUR RULE:
+    # if discount exists → balance = 0
+    balance = 0 if discount > 0 else (final - paid)
 
     invoice = {
-        "patient_name": data.get("patient_name"),
-        "procedure": data.get("procedure"),
-        "qty": qty,
-        "rate": rate,
+        "patient_name": patient_name,
+        "rows": rows,
+        "payments": payments,
+
         "amount": total,
-        "paid": p1 + p2,
-        "balance": total - (p1 + p2),
+        "discount": discount,
+        "final": final,
+
+        "paid": paid,
+        "balance": balance,
+
         "created_at": datetime.utcnow()
     }
 
     res = invoices.insert_one(invoice)
-
-    add_to_timeline(
-        patient_id=data.get("patient_id"),
-        event_type="invoice",
-        ref_id=str(res.inserted_id),
-        data={
-            "amount": total,
-            "paid": p1 + p2,
-            "balance": total - (p1 + p2)
-        }
-    )
-
     return {"id": str(res.inserted_id)}
 
 
 # =========================
-# GET ALL
+# UPDATE
 # =========================
-@router.get("/")   # ✅ FIXED
+@router.put("/{id}")
+def update_invoice(id: str, data: dict):
+
+    try:
+        rows = data.get("rows", [])
+        payments = data.get("payments", [])
+        discount = float(data.get("discount", 0))
+
+        total = sum(float(r.get("rate", 0)) for r in rows)
+        paid = sum(float(p.get("amount", 0)) for p in payments)
+
+        final = total - discount
+        balance = 0 if discount > 0 else (final - paid)
+
+        data.update({
+            "amount": total,
+            "final": final,
+            "paid": paid,
+            "balance": balance
+        })
+
+        invoices.update_one(
+            {"_id": ObjectId(id)},
+            {"$set": data}
+        )
+
+        return {"msg": "Updated ✅"}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =========================
+# GET
+# =========================
+@router.get("/")
 def get_invoices():
     data = []
     for i in invoices.find():
@@ -71,46 +102,73 @@ def get_invoices():
 # =========================
 # DELETE
 # =========================
-@router.delete("/{id}")   # ✅ FIXED
+@router.delete("/{id}")
 def delete_invoice(id: str):
     invoices.delete_one({"_id": ObjectId(id)})
     return {"msg": "Deleted"}
 
 
 # =========================
-# PDF (KEEP SAME)
+# PDF
 # =========================
-@router.get("/pdf/{patient_name}")   # ✅ FIXED
+@router.get("/pdf/{patient_name}")
 def generate_invoice(patient_name: str):
 
-    try:
-        bills = list(billing.find({"patient_name": patient_name}, {"_id": 0}))
-        pays = list(payments.find({"patient_name": patient_name}, {"_id": 0}))
+    inv = list(invoices.find({"patient_name": patient_name}, {"_id": 0}))
 
-        total = sum([b.get("amount", 0) for b in bills])
-        paid = sum([p.get("amount", 0) for p in pays])
-        balance = total - paid
+    if not inv:
+        return {"msg": "No invoice"}
 
-        env = Environment(loader=FileSystemLoader("app/templates"))
-        template = env.get_template("invoice.html")
+    bills = []
+    payments = []
 
-        html_content = template.render(
-            name=patient_name,
-            date=datetime.now().strftime("%Y-%m-%d"),
-            bills=bills,
-            payments=pays,
-            total=total,
-            paid=paid,
-            balance=balance
-        )
+    total = 0
+    discount = 0
+    paid = 0
 
-        pdf = HTML(string=html_content).write_pdf()
+    for i in inv:
 
-        return Response(
-            content=pdf,
-            media_type="application/pdf",
-            headers={"Content-Disposition": "inline; filename=invoice.pdf"}
-        )
+        # 🔥 ROWS → BILLING TABLE
+        for r in i.get("rows", []):
+            bills.append({
+                "procedure": r.get("treatment"),
+                "qty": r.get("qty", ""),
+                "rate": r.get("rate"),
+                "amount": r.get("rate")
+            })
 
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        # PAYMENTS
+        payments.extend(i.get("payments", []))
+
+        total += float(i.get("amount", 0))
+        discount += float(i.get("discount", 0))
+        paid += float(i.get("paid", 0))
+
+    final = total - discount
+
+    # 🔥 SAME RULE
+    balance = 0 if discount > 0 else (final - paid)
+
+    env = Environment(loader=FileSystemLoader("app/templates"))
+    template = env.get_template("invoice.html")
+
+    html_content = template.render(
+        name=patient_name,
+        date=datetime.now().strftime("%Y-%m-%d"),
+
+        bills=bills,
+        payments=payments,
+
+        total=total,
+        discount=discount,
+        paid=paid,
+        balance=balance
+    )
+
+    pdf = HTML(string=html_content).write_pdf()
+
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline; filename=invoice.pdf"}
+    )

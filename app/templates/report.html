@@ -1,21 +1,47 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
+<meta charset="UTF-8">
 
 <style>
-body { font-family: Arial; padding:20px; }
-h1 { text-align:center; color:#2b4c7e; }
-.section { margin-top:20px; }
-.title { background:#eef4ff; padding:8px; font-weight:bold; }
+body { font-family: Arial; padding:25px; }
 
-table { width:100%; border-collapse:collapse; }
-th, td { border:1px solid #ccc; padding:6px; text-align:center; }
+h1 {
+    text-align:center;
+    color:#1a3c6e;
+}
 
-.info { border:1px solid #ccc; padding:10px; }
+.section {
+    border:1px solid #d0d7e2;
+    margin-top:15px;
+}
 
-.chart { text-align:center; margin-top:10px; }
-.chart img { width:300px; }
+.title {
+    background:#e8f0fe;
+    color:#1a3c6e;
+    padding:8px;
+    font-weight:bold;
+}
+
+table {
+    width:100%;
+    border-collapse:collapse;
+}
+
+td, th {
+    border:1px solid #d0d7e2;
+    padding:6px;
+    text-align:center;
+}
+
+.chart {
+    text-align:center;
+    margin-top:10px;
+}
+
+.chart img {
+    width:350px;
+}
 </style>
 
 </head>
@@ -23,31 +49,43 @@ th, td { border:1px solid #ccc; padding:6px; text-align:center; }
 <body>
 
 <h1>HDC Holistic Domain of Creativity</h1>
-<p><b>Date:</b> {{date}} | <b>Time:</b> {{time}}</p>
 
+<p><b>Date:</b> {{date}} | <b>Patient:</b> {{patient.name}}</p>
+
+<!-- PATIENT INFO -->
 <div class="section">
 <div class="title">PATIENT INFORMATION</div>
-<div class="info">
-Name: {{patient.name or ''}}<br>
-Age: {{patient.age or ''}}<br>
-Phone: {{patient.phone or ''}}<br>
-Address: {{patient.address or ''}}
-</div>
-</div>
-
-<div class="section">
-<div class="title">DENTAL CHECKUP REPORT</div>
 
 <table>
-<tr><th>Tooth</th><th>Condition</th><th>Treatment</th></tr>
+<tr><td>Name</td><td>{{patient.name}}</td></tr>
+<tr><td>Age</td><td>{{patient.age}}</td></tr>
+<tr><td>Gender</td><td>{{patient.gender}}</td></tr>
+<tr><td>Phone</td><td>{{patient.phone}}</td></tr>
+<tr><td>Address</td><td>{{patient.address}}</td></tr>
+</table>
 
-{% if checkup_tasks and checkup_tasks|length > 0 %}
-  {% for t in checkup_tasks %}
-  <tr>
-    <td>{{ t.tooth or '' }}</td>
-    <td>{{ t.condition or '' }}</td>
-    <td>{{ t.treatment or '' }}</td>
-  </tr>
+</div>
+
+<!-- CHECKUP -->
+<div class="section">
+<div class="title">CHECKUP</div>
+
+<table>
+<tr>
+<th>Tooth</th>
+<th>Condition</th>
+<th>Treatment</th>
+</tr>
+
+{% if checkups %}
+  {% for c in checkups %}
+    {% for t in c.tasks %}
+    <tr>
+      <td>{{t.tooth}}</td>
+      <td>{{t.condition}}</td>
+      <td>{{t.treatment}}</td>
+    </tr>
+    {% endfor %}
   {% endfor %}
 {% else %}
 <tr><td colspan="3">No checkup data</td></tr>
@@ -56,61 +94,98 @@ Address: {{patient.address or ''}}
 </table>
 
 <br>
-<b>Chief Complaint:</b> {{chief_complaint or ''}}
+<b>Chief Complaint:</b> {{checkups[0].complaint if checkups else ""}}
 
 </div>
 
+<!-- VISITS -->
 <div class="section">
-<div class="title">TREATMENT SUMMARY</div>
-
-<table>
-<tr><th>Tooth</th><th>Treatment</th></tr>
-
-{% if checkup_tasks and checkup_tasks|length > 0 %}
-  {% for t in checkup_tasks %}
-  <tr>
-    <td>{{ t.tooth or '' }}</td>
-    <td>{{ t.treatment or '' }}</td>
-  </tr>
-  {% endfor %}
-{% else %}
-<tr><td colspan="2">No treatment data</td></tr>
-{% endif %}
-
-</table>
-</div>
-
-<div class="section">
-<div class="title">CLINICAL TIMELINE</div>
+<div class="title">VISITS</div>
 
 <table>
 <tr>
-<th>Date</th><th>Diagnosis</th><th>Treatment</th><th>Medicines</th><th>Fee</th>
+<th>Date</th>
+<th>Diagnosis</th>
+<th>Treatment</th>
+<th>Medicines</th>
+<th>Fee</th>
 </tr>
 
-{% if visits and visits|length > 0 %}
-  {% for v in visits %}
-  <tr>
-    <td>{{ v.date or '' }}</td>
-    <td>{{ v.diagnosis or '' }}</td>
-    <td>{{ v.treatment or '' }}</td>
-    <td>{{ v.medicines or '' }}</td>
-    <td>{{ v.fee or '' }}</td>
-  </tr>
-  {% endfor %}
+{% if visits %}
+{% for v in visits %}
+<tr>
+<td>{{v.date or ""}}</td>
+<td>{{v.diagnosis or ""}}</td>
+<td>{{v.treatment or ""}}</td>
+<td>{{v.medicines or ""}}</td>
+<td>{{v.fee or ""}}</td>
+</tr>
+{% endfor %}
 {% else %}
 <tr><td colspan="5">No visit data</td></tr>
 {% endif %}
 
 </table>
+
 </div>
 
+<!-- =========================
+INVOICE (FIXED + COMBINED)
+========================= -->
+<div class="section">
+<div class="title">INVOICE</div>
+
+<table>
+<tr>
+<th>Procedure</th>
+<th>Amount</th>
+<th>Paid</th>
+<th>Balance</th>
+</tr>
+
+{% if invoices %}
+
+  {% for inv in invoices %}
+
+    {% set proc_list = [] %}
+
+    {% if inv.rows %}
+      {% for r in inv.rows %}
+
+        {% if r.treatment == "Ceramic Crowns" %}
+          {% set _ = proc_list.append("CC") %}
+        {% elif r.treatment == "Extraction" %}
+          {% set _ = proc_list.append("EXT") %}
+        {% else %}
+          {% set _ = proc_list.append(r.treatment) %}
+        {% endif %}
+
+      {% endfor %}
+    {% endif %}
+
+    <tr>
+      <td>{{ proc_list | join(', ') }}</td>
+      <td>{{ inv.amount }}</td>
+      <td>{{ inv.paid }}</td>
+      <td>{{ inv.balance }}</td>
+    </tr>
+
+  {% endfor %}
+
+{% else %}
+<tr><td colspan="4">No billing data</td></tr>
+{% endif %}
+
+</table>
+
+</div>
+
+<!-- TOOTH CHART -->
 <div class="section">
 <div class="title">DENTAL CHART</div>
 
 <div class="chart">
-    <!-- 🔥 FIXED IMAGE (WORKS WITH WEASYPRINT) -->
-    <img src="{{ tooth_image }}">
+<img src="{{ tooth_image }}">
 </div>
 
 </div>

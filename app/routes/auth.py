@@ -13,7 +13,7 @@ ALGORITHM = "HS256"
 
 
 # =========================
-# HASH FUNCTION
+# HASH FUNCTION (SHA256)
 # =========================
 def hash_password(password: str):
     return hashlib.sha256(password.encode()).hexdigest()
@@ -32,16 +32,17 @@ def register(data: dict):
         if not username or not password:
             raise HTTPException(status_code=400, detail="Missing fields")
 
-        if users.find_one({"username": username}):
+        existing = users.find_one({"username": username})
+        if existing:
             return {"msg": "User already exists"}
 
         users.insert_one({
             "username": username,
-            "password": hash_password(password),  # 🔥 hashed
+            "password": hash_password(password),   # ✅ SHA256
             "role": role
         })
 
-        return {"msg": "User created"}
+        return {"msg": "User created ✅"}
 
     except Exception as e:
         print("🔥 REGISTER ERROR:", e)
@@ -49,13 +50,11 @@ def register(data: dict):
 
 
 # =========================
-# LOGIN (SAFE + DEBUG)
+# LOGIN
 # =========================
 @router.post("/login")
 def login(data: dict):
     try:
-        print("LOGIN DATA:", data)
-
         username = data.get("username")
         password = data.get("password")
 
@@ -63,18 +62,25 @@ def login(data: dict):
             raise HTTPException(status_code=400, detail="Missing credentials")
 
         user = users.find_one({"username": username})
-        print("USER FOUND:", user)
 
         if not user:
             raise HTTPException(status_code=400, detail="User not found")
 
+        # ✅ HASH INPUT PASSWORD
         hashed_input = hash_password(password)
-        print("INPUT HASH:", hashed_input)
-        print("DB HASH:", user.get("password"))
 
-        if hashed_input != user.get("password"):
+        # 🔥 SAFE CHECK
+        db_password = user.get("password")
+
+        if not db_password:
+            raise HTTPException(status_code=500, detail="User password missing")
+
+        if hashed_input != db_password:
             raise HTTPException(status_code=400, detail="Wrong password")
 
+        # =========================
+        # TOKEN
+        # =========================
         payload = {
             "sub": user["username"],
             "role": user.get("role", "staff"),
@@ -85,16 +91,20 @@ def login(data: dict):
 
         return {
             "access_token": token,
-            "role": user.get("role", "staff")
+            "role": user.get("role", "staff"),
+            "username": user.get("username")
         }
 
+    except HTTPException:
+        raise
+
     except Exception as e:
-        print("🔥 LOGIN ERROR FULL:", e)
+        print("🔥 LOGIN ERROR:", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
 # =========================
-# DELETE USER (TEMP DEBUG)
+# DELETE USER
 # =========================
 @router.delete("/delete-user/{username}")
 def delete_user(username: str):
