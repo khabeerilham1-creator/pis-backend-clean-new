@@ -9,6 +9,9 @@ from datetime import datetime
 from app.auth.deps import get_current_user
 from app.utils.audit import log_action
 
+# 🔥 NEW
+from app.routes.timeline import add_to_timeline
+
 router = APIRouter()
 patients = db["patients"]
 
@@ -27,9 +30,11 @@ def get_patients(user=Depends(get_current_user)):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     result = []
+
     for p in patients.find():
         p["_id"] = str(p["_id"])
         result.append(p)
+
     return result
 
 
@@ -87,24 +92,41 @@ def create_patient(
     # SAVE XRAY
     if xray:
         try:
-            file_path = os.path.join(UPLOAD_FOLDER, xray.filename)
+
+            filename = f"{datetime.utcnow().timestamp()}_{xray.filename}"
+
+            file_path = os.path.join(UPLOAD_FOLDER, filename)
+
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(xray.file, buffer)
 
             data["xray"] = file_path
+
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
 
     result = patients.insert_one(data)
 
-    # 🔥 IMPORTANT → USE ONLY patient_id (SAFE)
-    sync_patient_file(
-        patient_id=str(result.inserted_id)
+    patient_id = str(result.inserted_id)
+
+    # 🔥 TIMELINE ENTRY
+    add_to_timeline(
+        patient_id=patient_id,
+        event_type="patient_created",
+        data={
+            "name": name,
+            "phone": phone
+        }
     )
 
-    log_action(user, "create_patient", str(result.inserted_id), data)
+    sync_patient_file(patient_id=patient_id)
 
-    return {"msg": "Patient created"}
+    log_action(user, "create_patient", patient_id, data)
+
+    return {
+        "msg": "Patient created",
+        "id": patient_id
+    }
 
 
 # =========================
@@ -112,6 +134,7 @@ def create_patient(
 # =========================
 @router.put("/{id}")
 def update_patient(id: str, data: dict, user=Depends(get_current_user)):
+
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -120,7 +143,13 @@ def update_patient(id: str, data: dict, user=Depends(get_current_user)):
 
     patients.update_one({"_id": ObjectId(id)}, {"$set": data})
 
-    # 🔥 SYNC AFTER UPDATE
+    # 🔥 TIMELINE ENTRY
+    add_to_timeline(
+        patient_id=id,
+        event_type="patient_updated",
+        data=data
+    )
+
     sync_patient_file(patient_id=id)
 
     log_action(user, "update_patient", id, data)
@@ -133,6 +162,7 @@ def update_patient(id: str, data: dict, user=Depends(get_current_user)):
 # =========================
 @router.delete("/{id}")
 def delete_patient(id: str, user=Depends(get_current_user)):
+
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -140,6 +170,11 @@ def delete_patient(id: str, user=Depends(get_current_user)):
         raise HTTPException(status_code=400, detail="Invalid ID")
 
     patients.delete_one({"_id": ObjectId(id)})
+
+    add_to_timeline(
+        patient_id=id,
+        event_type="patient_deleted"
+    )
 
     log_action(user, "delete_patient", id)
 

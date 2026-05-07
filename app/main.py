@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 # =========================
 # IMPORT ROUTES
@@ -39,6 +40,12 @@ app = FastAPI(title="Clinic Management API")
 
 
 # =========================
+# STATIC FILES
+# =========================
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+
+# =========================
 # CORS (🔥 FIXED FOR DOMAIN)
 # =========================
 app.add_middleware(
@@ -46,7 +53,7 @@ app.add_middleware(
     allow_origins=[
         "https://drzaffariqbal.com",
         "https://www.drzaffariqbal.com",
-        "http://localhost:3000"  # ✅ keep for local testing
+        "http://localhost:3000"
     ],
     allow_credentials=True,
     allow_methods=["*"],

@@ -3,74 +3,192 @@
 <head>
 <meta charset="UTF-8">
 
+{% set color = patient.colour_code or 'green' %}
+
+{% if color == 'green' %}
+  {% set primary = '#16a34a' %}
+  {% set light = '#dcfce7' %}
+{% elif color == 'yellow' %}
+  {% set primary = '#ca8a04' %}
+  {% set light = '#fef9c3' %}
+{% elif color == 'orange' %}
+  {% set primary = '#ea580c' %}
+  {% set light = '#fed7aa' %}
+{% elif color == 'red' %}
+  {% set primary = '#dc2626' %}
+  {% set light = '#fecaca' %}
+{% else %}
+  {% set primary = '#2563eb' %}
+  {% set light = '#dbeafe' %}
+{% endif %}
+
 <style>
-body { font-family: Arial; padding:25px; }
 
-h1 {
+body{
+    font-family:Arial;
+    padding:25px;
+    color:#111827;
+}
+
+h1{
     text-align:center;
-    color:#1a3c6e;
+    color:white;
+    background:{{primary}};
+    padding:18px;
+    border-radius:10px;
 }
 
-.section {
-    border:1px solid #d0d7e2;
-    margin-top:15px;
-}
-
-.title {
-    background:#e8f0fe;
-    color:#1a3c6e;
-    padding:8px;
+.patient-badge{
+    background:{{primary}};
+    color:white;
+    display:inline-block;
+    padding:6px 14px;
+    border-radius:30px;
+    font-size:13px;
     font-weight:bold;
+    margin-top:10px;
 }
 
-table {
+.section{
+    border:2px solid {{primary}};
+    margin-top:20px;
+    border-radius:10px;
+    overflow:hidden;
+}
+
+.title{
+    background:{{light}};
+    color:{{primary}};
+    padding:10px;
+    font-weight:bold;
+    font-size:15px;
+}
+
+table{
     width:100%;
     border-collapse:collapse;
 }
 
-td, th {
-    border:1px solid #d0d7e2;
-    padding:6px;
+td, th{
+    border:1px solid #d1d5db;
+    padding:8px;
     text-align:center;
 }
 
-.chart {
-    text-align:center;
-    margin-top:10px;
+th{
+    background:#f8fafc;
 }
 
-.chart img {
+.chart{
+    text-align:center;
+    padding:20px;
+}
+
+.chart img{
     width:350px;
 }
+
+.info-grid{
+    display:grid;
+    grid-template-columns:repeat(2,1fr);
+}
+
+.info-item{
+    padding:10px;
+    border-bottom:1px solid #e5e7eb;
+}
+
+.footer{
+    margin-top:30px;
+    text-align:center;
+    color:#6b7280;
+    font-size:12px;
+}
+
 </style>
 
 </head>
 
 <body>
 
-<h1>HDC Holistic Domain of Creativity</h1>
+<h1>
+HDC Holistic Domain of Creativity
+</h1>
 
-<p><b>Date:</b> {{date}} | <b>Patient:</b> {{patient.name}}</p>
+<div style="display:flex;justify-content:space-between;align-items:center;">
+
+<div>
+<b>Date:</b> {{date}}
+</div>
+
+<div class="patient-badge">
+{{ patient.colour_code | upper }} CATEGORY
+</div>
+
+</div>
 
 <!-- PATIENT INFO -->
 <div class="section">
-<div class="title">PATIENT INFORMATION</div>
 
-<table>
-<tr><td>Name</td><td>{{patient.name}}</td></tr>
-<tr><td>Age</td><td>{{patient.age}}</td></tr>
-<tr><td>Gender</td><td>{{patient.gender}}</td></tr>
-<tr><td>Phone</td><td>{{patient.phone}}</td></tr>
-<tr><td>Address</td><td>{{patient.address}}</td></tr>
-</table>
+<div class="title">
+PATIENT INFORMATION
+</div>
+
+<div class="info-grid">
+
+<div class="info-item">
+<b>Reg No:</b> {{patient.reg_no}}
+</div>
+
+<div class="info-item">
+<b>Name:</b> {{patient.title}} {{patient.name}}
+</div>
+
+<div class="info-item">
+<b>Age:</b> {{patient.age}}
+</div>
+
+<div class="info-item">
+<b>Gender:</b> {{patient.gender}}
+</div>
+
+<div class="info-item">
+<b>Mobile:</b> {{patient.mobile_number}}
+</div>
+
+<div class="info-item">
+<b>Address:</b> {{patient.address}}
+</div>
+
+<div class="info-item">
+<b>Occupation:</b> {{patient.occupation}}
+</div>
+
+<div class="info-item">
+<b>Category:</b> {{patient.category}}
+</div>
+
+<div class="info-item">
+<b>Purpose:</b> {{patient.purpose_of_visit}}
+</div>
+
+<div class="info-item">
+<b>Fee Status:</b> {{patient.consultation_fee_paid}}
+</div>
+
+</div>
 
 </div>
 
 <!-- CHECKUP -->
 <div class="section">
-<div class="title">CHECKUP</div>
+
+<div class="title">
+CHECKUP REPORT
+</div>
 
 <table>
+
 <tr>
 <th>Tooth</th>
 <th>Condition</th>
@@ -78,31 +196,47 @@ td, th {
 </tr>
 
 {% if checkups %}
-  {% for c in checkups %}
-    {% for t in c.tasks %}
-    <tr>
-      <td>{{t.tooth}}</td>
-      <td>{{t.condition}}</td>
-      <td>{{t.treatment}}</td>
-    </tr>
-    {% endfor %}
-  {% endfor %}
+
+{% for c in checkups %}
+{% for t in c.tasks %}
+
+<tr>
+<td>{{t.tooth}}</td>
+<td>{{t.condition}}</td>
+<td>{{t.treatment}}</td>
+</tr>
+
+{% endfor %}
+{% endfor %}
+
 {% else %}
-<tr><td colspan="3">No checkup data</td></tr>
+
+<tr>
+<td colspan="3">
+No checkup data
+</td>
+</tr>
+
 {% endif %}
 
 </table>
 
-<br>
-<b>Chief Complaint:</b> {{checkups[0].complaint if checkups else ""}}
+<div style="padding:15px;">
+<b>Dental Complaint:</b>
+{{checkups[0].complaint if checkups else ""}}
+</div>
 
 </div>
 
 <!-- VISITS -->
 <div class="section">
-<div class="title">VISITS</div>
+
+<div class="title">
+VISITS HISTORY
+</div>
 
 <table>
+
 <tr>
 <th>Date</th>
 <th>Diagnosis</th>
@@ -112,7 +246,9 @@ td, th {
 </tr>
 
 {% if visits %}
+
 {% for v in visits %}
+
 <tr>
 <td>{{v.date or ""}}</td>
 <td>{{v.diagnosis or ""}}</td>
@@ -120,22 +256,32 @@ td, th {
 <td>{{v.medicines or ""}}</td>
 <td>{{v.fee or ""}}</td>
 </tr>
+
 {% endfor %}
+
 {% else %}
-<tr><td colspan="5">No visit data</td></tr>
+
+<tr>
+<td colspan="5">
+No visit data
+</td>
+</tr>
+
 {% endif %}
 
 </table>
 
 </div>
 
-<!-- =========================
-INVOICE (FIXED + COMBINED)
-========================= -->
+<!-- INVOICE -->
 <div class="section">
-<div class="title">INVOICE</div>
+
+<div class="title">
+INVOICE SUMMARY
+</div>
 
 <table>
+
 <tr>
 <th>Procedure</th>
 <th>Amount</th>
@@ -145,49 +291,53 @@ INVOICE (FIXED + COMBINED)
 
 {% if invoices %}
 
-  {% for inv in invoices %}
+{% for inv in invoices %}
 
-    {% set proc_list = [] %}
+<tr>
 
-    {% if inv.rows %}
-      {% for r in inv.rows %}
+<td>
+{% for r in inv.rows %}
+{{r.treatment}}{% if not loop.last %}, {% endif %}
+{% endfor %}
+</td>
 
-        {% if r.treatment == "Ceramic Crowns" %}
-          {% set _ = proc_list.append("CC") %}
-        {% elif r.treatment == "Extraction" %}
-          {% set _ = proc_list.append("EXT") %}
-        {% else %}
-          {% set _ = proc_list.append(r.treatment) %}
-        {% endif %}
+<td>{{inv.amount}}</td>
+<td>{{inv.paid}}</td>
+<td>{{inv.balance}}</td>
 
-      {% endfor %}
-    {% endif %}
+</tr>
 
-    <tr>
-      <td>{{ proc_list | join(', ') }}</td>
-      <td>{{ inv.amount }}</td>
-      <td>{{ inv.paid }}</td>
-      <td>{{ inv.balance }}</td>
-    </tr>
-
-  {% endfor %}
+{% endfor %}
 
 {% else %}
-<tr><td colspan="4">No billing data</td></tr>
+
+<tr>
+<td colspan="4">
+No invoice data
+</td>
+</tr>
+
 {% endif %}
 
 </table>
 
 </div>
 
-<!-- TOOTH CHART -->
+<!-- DENTAL CHART -->
 <div class="section">
-<div class="title">DENTAL CHART</div>
+
+<div class="title">
+DENTAL CHART
+</div>
 
 <div class="chart">
 <img src="{{ tooth_image }}">
 </div>
 
+</div>
+
+<div class="footer">
+Generated by HDC Clinical Intelligence System
 </div>
 
 </body>

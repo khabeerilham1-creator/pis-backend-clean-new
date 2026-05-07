@@ -9,6 +9,8 @@ from weasyprint import HTML
 router = APIRouter()
 
 invoices = db["invoices"]
+patients = db["patients"]
+
 
 # =========================
 # CREATE
@@ -29,7 +31,6 @@ def create_invoice(data: dict):
 
     final = total - discount
 
-    # 🔥 YOUR RULE:
     # if discount exists → balance = 0
     balance = 0 if discount > 0 else (final - paid)
 
@@ -49,7 +50,10 @@ def create_invoice(data: dict):
     }
 
     res = invoices.insert_one(invoice)
-    return {"id": str(res.inserted_id)}
+
+    return {
+        "id": str(res.inserted_id)
+    }
 
 
 # =========================
@@ -59,6 +63,7 @@ def create_invoice(data: dict):
 def update_invoice(id: str, data: dict):
 
     try:
+
         rows = data.get("rows", [])
         payments = data.get("payments", [])
         discount = float(data.get("discount", 0))
@@ -67,6 +72,7 @@ def update_invoice(id: str, data: dict):
         paid = sum(float(p.get("amount", 0)) for p in payments)
 
         final = total - discount
+
         balance = 0 if discount > 0 else (final - paid)
 
         data.update({
@@ -81,10 +87,16 @@ def update_invoice(id: str, data: dict):
             {"$set": data}
         )
 
-        return {"msg": "Updated ✅"}
+        return {
+            "msg": "Updated ✅"
+        }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 
 # =========================
@@ -92,10 +104,15 @@ def update_invoice(id: str, data: dict):
 # =========================
 @router.get("/")
 def get_invoices():
+
     data = []
+
     for i in invoices.find():
+
         i["_id"] = str(i["_id"])
+
         data.append(i)
+
     return data
 
 
@@ -104,8 +121,14 @@ def get_invoices():
 # =========================
 @router.delete("/{id}")
 def delete_invoice(id: str):
-    invoices.delete_one({"_id": ObjectId(id)})
-    return {"msg": "Deleted"}
+
+    invoices.delete_one({
+        "_id": ObjectId(id)
+    })
+
+    return {
+        "msg": "Deleted"
+    }
 
 
 # =========================
@@ -114,7 +137,12 @@ def delete_invoice(id: str):
 @router.get("/pdf/{patient_name}")
 def generate_invoice(patient_name: str):
 
-    inv = list(invoices.find({"patient_name": patient_name}, {"_id": 0}))
+    inv = list(
+        invoices.find(
+            {"patient_name": patient_name},
+            {"_id": 0}
+        )
+    )
 
     if not inv:
         return {"msg": "No invoice"}
@@ -126,10 +154,14 @@ def generate_invoice(patient_name: str):
     discount = 0
     paid = 0
 
+    # =========================
+    # BUILD DATA
+    # =========================
     for i in inv:
 
-        # 🔥 ROWS → BILLING TABLE
+        # ROWS
         for r in i.get("rows", []):
+
             bills.append({
                 "procedure": r.get("treatment"),
                 "qty": r.get("qty", ""),
@@ -138,37 +170,90 @@ def generate_invoice(patient_name: str):
             })
 
         # PAYMENTS
-        payments.extend(i.get("payments", []))
+        payments.extend(
+            i.get("payments", [])
+        )
 
-        total += float(i.get("amount", 0))
-        discount += float(i.get("discount", 0))
-        paid += float(i.get("paid", 0))
+        total += float(
+            i.get("amount", 0)
+        )
+
+        discount += float(
+            i.get("discount", 0)
+        )
+
+        paid += float(
+            i.get("paid", 0)
+        )
 
     final = total - discount
 
-    # 🔥 SAME RULE
-    balance = 0 if discount > 0 else (final - paid)
+    balance = (
+        0 if discount > 0
+        else (final - paid)
+    )
 
-    env = Environment(loader=FileSystemLoader("app/templates"))
-    template = env.get_template("invoice.html")
+    # =========================
+    # TEMPLATE
+    # =========================
+    env = Environment(
+        loader=FileSystemLoader(
+            "app/templates"
+        )
+    )
 
+    template = env.get_template(
+        "invoice.html"
+    )
+
+    # =========================
+    # PATIENT COLOR INFO
+    # =========================
+    patient = patients.find_one({
+        "name": patient_name
+    }) or {}
+
+    # =========================
+    # RENDER HTML
+    # =========================
     html_content = template.render(
+
+        patient=patient,
+
         name=patient_name,
-        date=datetime.now().strftime("%Y-%m-%d"),
+
+        date=datetime.now().strftime(
+            "%Y-%m-%d"
+        ),
 
         bills=bills,
+
         payments=payments,
 
         total=total,
+
         discount=discount,
+
         paid=paid,
+
         balance=balance
     )
 
-    pdf = HTML(string=html_content).write_pdf()
+    # =========================
+    # GENERATE PDF
+    # =========================
+    pdf = HTML(
+        string=html_content
+    ).write_pdf()
 
     return Response(
+
         content=pdf,
+
         media_type="application/pdf",
-        headers={"Content-Disposition": "inline; filename=invoice.pdf"}
+
+        headers={
+            "Content-Disposition":
+            "inline; filename=invoice.pdf"
+        }
     )

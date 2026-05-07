@@ -1,34 +1,32 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from app.core.database import db
-from bson import ObjectId
+from datetime import datetime
+from app.dependencies import get_current_user
 
 router = APIRouter()
 
-cis = db["cis"]
-
+cis_collection = db["cis"]
 
 @router.post("/")
-def create_cis(data: dict):
-    cis.insert_one(data)
-    return {"msg": "Created"}
+async def create_cis(data: dict, user=Depends(get_current_user)):
 
+    doc = {
+        "patient_id": data.get("patient_id"),
+        "diagnosis": data.get("diagnosis"),
+        "treatment": data.get("treatment"),
+        "notes": data.get("notes"),
 
-@router.get("/")
-def get_cis():
-    result = []
-    for c in cis.find():
-        c["_id"] = str(c["_id"])
-        result.append(c)
-    return result
+        # NEW STRUCTURE
+        "treatment_plan": data.get("treatment_plan", []),
+        "procedure_notes": data.get("procedure_notes", []),
+        "followups": data.get("followups", []),
+        "images": data.get("images", []),
 
+        "created_by": user.get("sub"),
+        "role": user.get("role"),
+        "created_at": datetime.utcnow()
+    }
 
-@router.put("/{id}")
-def update_cis(id: str, data: dict):
-    cis.update_one({"_id": ObjectId(id)}, {"$set": data})
-    return {"msg": "Updated"}
+    cis_collection.insert_one(doc)
 
-
-@router.delete("/{id}")
-def delete_cis(id: str):
-    cis.delete_one({"_id": ObjectId(id)})
-    return {"msg": "Deleted"}
+    return {"msg": "CIS Saved"}

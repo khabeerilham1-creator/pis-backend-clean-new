@@ -8,7 +8,7 @@ router = APIRouter()
 
 users = db["users"]
 
-SECRET_KEY = "secret123"
+SECRET_KEY = "HDC_SUPER_SECRET_2026"
 ALGORITHM = "HS256"
 
 
@@ -98,7 +98,7 @@ def login(data: dict):
         payload = {
             "sub": user["username"],
             "role": user.get("role", "staff"),
-            "exp": datetime.utcnow() + timedelta(hours=10)
+            "exp": datetime.utcnow() + timedelta(days=1)
         }
 
         print("🧪 TOKEN PAYLOAD:", payload)

@@ -3,108 +3,147 @@
 <head>
 <meta charset="UTF-8">
 
+{% set color = info.colour_code or 'green' %}
+
+{% if color == 'green' %}
+{% set primary = '#16a34a' %}
+{% set light = '#dcfce7' %}
+{% elif color == 'yellow' %}
+{% set primary = '#ca8a04' %}
+{% set light = '#fef9c3' %}
+{% elif color == 'orange' %}
+{% set primary = '#ea580c' %}
+{% set light = '#fed7aa' %}
+{% elif color == 'red' %}
+{% set primary = '#dc2626' %}
+{% set light = '#fecaca' %}
+{% endif %}
+
 <style>
-body { font-family: Arial; padding:20px; }
 
-h1 {
-  text-align:center;
-  color:#1a3c6e;
+body{
+font-family:Arial;
+padding:20px;
 }
 
-.section {
-  border:1px solid #d0d7e2;
-  margin-top:15px;
+h1{
+text-align:center;
+background:{{primary}};
+color:white;
+padding:15px;
+border-radius:10px;
 }
 
-.title {
-  background:#e8f0fe;
-  padding:8px;
-  font-weight:bold;
+.section{
+border:2px solid {{primary}};
+margin-top:20px;
+border-radius:10px;
+overflow:hidden;
 }
 
-table {
-  width:100%;
-  border-collapse:collapse;
+.title{
+background:{{light}};
+padding:10px;
+font-weight:bold;
+color:{{primary}};
 }
 
-td, th {
-  border:1px solid #d0d7e2;
-  padding:6px;
-  text-align:left;
+table{
+width:100%;
+border-collapse:collapse;
 }
+
+th,td{
+border:1px solid #ddd;
+padding:8px;
+}
+
+.badge{
+background:{{primary}};
+color:white;
+padding:6px 14px;
+border-radius:20px;
+display:inline-block;
+font-size:12px;
+font-weight:bold;
+}
+
 </style>
 
 </head>
 
 <body>
 
-<h1>HDC Holistic Domain of Creativity</h1>
+<h1>Patient File</h1>
 
-<p><b>Year:</b> {{year}}</p>
-<p><b>Name:</b> {{info.name}}</p>
-<p><b>Phone:</b> {{info.phone}}</p>
-<p><b>Age:</b> {{info.age}}</p>
+<div style="display:flex;justify-content:space-between;">
+
+<div>
+<b>Name:</b> {{info.name}}
+</div>
+
+<div class="badge">
+{{info.colour_code | upper}}
+</div>
+
+</div>
 
 <div class="section">
-<div class="title">CHECKUPS</div>
+
+<div class="title">
+PATIENT INFORMATION
+</div>
+
 <table>
-<tr><th>Notes</th><th>Diagnosis</th></tr>
-{% for c in checkups %}
+
 <tr>
-<td>{{c.notes}}</td>
-<td>{{c.diagnosis}}</td>
+<td>Reg No</td>
+<td>{{info.reg_no}}</td>
 </tr>
-{% endfor %}
-</table>
-</div>
 
-<div class="section">
-<div class="title">VISITS</div>
-<table>
-<tr><th>Reason</th></tr>
-{% for v in visits %}
-<tr><td>{{v.reason}}</td></tr>
-{% endfor %}
-</table>
-</div>
-
-<div class="section">
-<div class="title">BILLING</div>
-<table>
-<tr><th>Amount</th><th>Balance</th></tr>
-{% for b in billing %}
 <tr>
-<td>{{b.amount}}</td>
-<td>{{b.balance}}</td>
+<td>Phone</td>
+<td>{{info.mobile_number}}</td>
 </tr>
-{% endfor %}
-</table>
-</div>
 
-<div class="section">
-<div class="title">PAYMENTS</div>
-<table>
-<tr><th>Amount</th><th>Method</th></tr>
-{% for p in payments %}
 <tr>
-<td>{{p.amount}}</td>
-<td>{{p.method}}</td>
+<td>Category</td>
+<td>{{info.category}}</td>
 </tr>
-{% endfor %}
+
+<tr>
+<td>Purpose</td>
+<td>{{info.purpose_of_visit}}</td>
+</tr>
+
 </table>
+
 </div>
 
 <div class="section">
-<div class="title">TIMELINE</div>
+
+<div class="title">
+TIMELINE
+</div>
+
 <table>
-<tr><th>Event</th><th>Date</th></tr>
+
+<tr>
+<th>Event</th>
+<th>Date</th>
+</tr>
+
 {% for t in timeline %}
+
 <tr>
 <td>{{t.event_type}}</td>
 <td>{{t.created_at}}</td>
 </tr>
+
 {% endfor %}
+
 </table>
+
 </div>
 
 </body>
