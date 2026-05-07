@@ -1,181 +1,255 @@
-from app.modules.file_sync import sync_patient_file
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, HTTPException
 from app.core.database import db
 from bson import ObjectId
-import shutil
-import os
 from datetime import datetime
 
-from app.auth.deps import get_current_user
-from app.utils.audit import log_action
-
-# 🔥 NEW
-from app.routes.timeline import add_to_timeline
-
 router = APIRouter()
+
 patients = db["patients"]
 
-UPLOAD_FOLDER = "uploads"
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-
-print("🔥 patient router loaded")
-
 
 # =========================
-# GET ALL PATIENTS
+# GET ALL
 # =========================
 @router.get("/")
-def get_patients(user=Depends(get_current_user)):
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+def get_patients():
 
-    result = []
+    data = []
 
-    for p in patients.find():
+    for p in patients.find().sort("created_at", -1):
+
         p["_id"] = str(p["_id"])
-        result.append(p)
 
-    return result
+        data.append(p)
+
+    return data
 
 
 # =========================
-# CREATE PATIENT
+# CREATE
 # =========================
 @router.post("/")
-def create_patient(
-    name: str = Form(...),
-    age: str = Form(...),
-    gender: str = Form(...),
-    phone: str = Form(...),
-    address: str = Form(...),
+async def create_patient(data: dict):
 
-    referral: str = Form(None),
-    care_category: str = Form(None),
-    conditions: str = Form(None),
-    allergies: str = Form(None),
-    medications: str = Form(None),
-    risk_flags: str = Form(None),
-    past_treatments: str = Form(None),
-    complaints: str = Form(None),
-    habits: str = Form(None),
-    signed_forms: str = Form(None),
-    estimates: str = Form(None),
-    legal_consents: str = Form(None),
+    try:
 
-    xray: UploadFile = File(None),
-    user=Depends(get_current_user)
-):
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+        patient = {
 
-    data = {
-        "name": name,
-        "age": age,
-        "gender": gender,
-        "phone": phone,
-        "address": address,
-        "referral": referral,
-        "care_category": care_category,
-        "conditions": conditions,
-        "allergies": allergies,
-        "medications": medications,
-        "risk_flags": risk_flags,
-        "past_treatments": past_treatments,
-        "complaints": complaints,
-        "habits": habits,
-        "signed_forms": signed_forms,
-        "estimates": estimates,
-        "legal_consents": legal_consents,
-        "created_at": datetime.utcnow()
-    }
+            "reg_no": data.get("reg_no", ""),
 
-    # SAVE XRAY
-    if xray:
-        try:
+            "date": data.get("date", ""),
 
-            filename = f"{datetime.utcnow().timestamp()}_{xray.filename}"
+            "title": data.get("title", "Mr."),
 
-            file_path = os.path.join(UPLOAD_FOLDER, filename)
+            "name": data.get("name", ""),
 
-            with open(file_path, "wb") as buffer:
-                shutil.copyfileobj(xray.file, buffer)
+            "birth_date": data.get("birth_date", ""),
 
-            data["xray"] = file_path
+            "age": data.get("age", ""),
 
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"File upload failed: {str(e)}")
+            "gender": data.get("gender", ""),
 
-    result = patients.insert_one(data)
+            "occupation": data.get("occupation", ""),
 
-    patient_id = str(result.inserted_id)
+            "address": data.get("address", ""),
 
-    # 🔥 TIMELINE ENTRY
-    add_to_timeline(
-        patient_id=patient_id,
-        event_type="patient_created",
-        data={
-            "name": name,
-            "phone": phone
+            "email": data.get("email", ""),
+
+            "ptcl_number": data.get("ptcl_number", ""),
+
+            "mobile_number": data.get("mobile_number", ""),
+
+            "emergency_number": data.get("emergency_number", ""),
+
+            "referred_by": data.get("referred_by", ""),
+
+            "category": data.get("category", ""),
+
+            "colour_code": data.get("colour_code", "green"),
+
+            "purpose_of_visit": data.get(
+                "purpose_of_visit",
+                ""
+            ),
+
+            "consultation_fee_paid": data.get(
+                "consultation_fee_paid",
+                "No"
+            ),
+
+            "conditions": data.get("conditions", ""),
+
+            "complaints": data.get(
+                "complaints",
+                "segmental"
+            ),
+
+            "created_at": datetime.utcnow()
         }
-    )
 
-    sync_patient_file(patient_id=patient_id)
+        result = patients.insert_one(patient)
 
-    log_action(user, "create_patient", patient_id, data)
+        patient["_id"] = str(result.inserted_id)
 
-    return {
-        "msg": "Patient created",
-        "id": patient_id
-    }
+        return patient
+
+    except Exception as e:
+
+        print("CREATE ERROR:", str(e))
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 
 # =========================
-# UPDATE PATIENT
+# UPDATE
 # =========================
 @router.put("/{id}")
-def update_patient(id: str, data: dict, user=Depends(get_current_user)):
+async def update_patient(id: str, data: dict):
 
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
 
-    if not ObjectId.is_valid(id):
-        raise HTTPException(status_code=400, detail="Invalid ID")
+        patients.update_one(
+            {"_id": ObjectId(id)},
+            {
+                "$set": {
 
-    patients.update_one({"_id": ObjectId(id)}, {"$set": data})
+                    "reg_no": data.get("reg_no", ""),
 
-    # 🔥 TIMELINE ENTRY
-    add_to_timeline(
-        patient_id=id,
-        event_type="patient_updated",
-        data=data
-    )
+                    "date": data.get("date", ""),
 
-    sync_patient_file(patient_id=id)
+                    "title": data.get("title", "Mr."),
 
-    log_action(user, "update_patient", id, data)
+                    "name": data.get("name", ""),
 
-    return {"msg": "Updated"}
+                    "birth_date": data.get("birth_date", ""),
+
+                    "age": data.get("age", ""),
+
+                    "gender": data.get("gender", ""),
+
+                    "occupation": data.get("occupation", ""),
+
+                    "address": data.get("address", ""),
+
+                    "email": data.get("email", ""),
+
+                    "ptcl_number": data.get("ptcl_number", ""),
+
+                    "mobile_number": data.get("mobile_number", ""),
+
+                    "emergency_number": data.get(
+                        "emergency_number",
+                        ""
+                    ),
+
+                    "referred_by": data.get(
+                        "referred_by",
+                        ""
+                    ),
+
+                    "category": data.get("category", ""),
+
+                    "colour_code": data.get(
+                        "colour_code",
+                        "green"
+                    ),
+
+                    "purpose_of_visit": data.get(
+                        "purpose_of_visit",
+                        ""
+                    ),
+
+                    "consultation_fee_paid": data.get(
+                        "consultation_fee_paid",
+                        "No"
+                    ),
+
+                    "conditions": data.get("conditions", ""),
+
+                    "complaints": data.get(
+                        "complaints",
+                        "segmental"
+                    )
+                }
+            }
+        )
+
+        updated = patients.find_one({
+            "_id": ObjectId(id)
+        })
+
+        if updated:
+            updated["_id"] = str(updated["_id"])
+
+        return updated
+
+    except Exception as e:
+
+        print("UPDATE ERROR:", str(e))
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
 
 
 # =========================
-# DELETE PATIENT
+# DELETE
 # =========================
 @router.delete("/{id}")
-def delete_patient(id: str, user=Depends(get_current_user)):
+async def delete_patient(id: str):
 
-    if not user:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
 
-    if not ObjectId.is_valid(id):
-        raise HTTPException(status_code=400, detail="Invalid ID")
+        patients.delete_one({
+            "_id": ObjectId(id)
+        })
 
-    patients.delete_one({"_id": ObjectId(id)})
+        return {
+            "msg": "Deleted ✅"
+        }
 
-    add_to_timeline(
-        patient_id=id,
-        event_type="patient_deleted"
-    )
+    except Exception as e:
 
-    log_action(user, "delete_patient", id)
+        print("DELETE ERROR:", str(e))
 
-    return {"msg": "Deleted"}
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
+
+
+# =========================
+# SINGLE
+# =========================
+@router.get("/{id}")
+def get_single_patient(id: str):
+
+    try:
+
+        patient = patients.find_one({
+            "_id": ObjectId(id)
+        })
+
+        if not patient:
+
+            raise HTTPException(
+                status_code=404,
+                detail="Patient not found"
+            )
+
+        patient["_id"] = str(patient["_id"])
+
+        return patient
+
+    except Exception as e:
+
+        print("GET ERROR:", str(e))
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(e)
+        )
