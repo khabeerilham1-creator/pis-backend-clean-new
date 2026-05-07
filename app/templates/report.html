@@ -24,54 +24,63 @@
 
 <style>
 
+@page{
+    size:A4;
+    margin:10px;
+}
+
 body{
     font-family:Arial;
-    padding:25px;
+    padding:10px;
     color:#111827;
+    font-size:11px;
 }
 
 h1{
     text-align:center;
     color:white;
     background:{{primary}};
-    padding:18px;
-    border-radius:10px;
+    padding:12px;
+    border-radius:8px;
+    font-size:24px;
+    margin-bottom:10px;
 }
 
 .patient-badge{
     background:{{primary}};
     color:white;
     display:inline-block;
-    padding:6px 14px;
+    padding:5px 12px;
     border-radius:30px;
-    font-size:13px;
+    font-size:11px;
     font-weight:bold;
-    margin-top:10px;
 }
 
 .section{
     border:2px solid {{primary}};
-    margin-top:20px;
-    border-radius:10px;
+    margin-top:10px;
+    border-radius:8px;
     overflow:hidden;
+    page-break-inside:avoid;
 }
 
 .title{
     background:{{light}};
     color:{{primary}};
-    padding:10px;
+    padding:7px;
     font-weight:bold;
-    font-size:15px;
+    font-size:12px;
 }
 
 table{
     width:100%;
     border-collapse:collapse;
+    font-size:10px;
 }
 
 td, th{
     border:1px solid #d1d5db;
-    padding:8px;
+    padding:5px;
     text-align:center;
 }
 
@@ -81,11 +90,13 @@ th{
 
 .chart{
     text-align:center;
-    padding:20px;
+    padding:8px;
 }
 
 .chart img{
-    width:350px;
+    width:220px;
+    max-height:130px;
+    object-fit:contain;
 }
 
 .info-grid{
@@ -94,15 +105,19 @@ th{
 }
 
 .info-item{
-    padding:10px;
+    padding:6px;
     border-bottom:1px solid #e5e7eb;
 }
 
 .footer{
-    margin-top:30px;
+    margin-top:10px;
     text-align:center;
     color:#6b7280;
-    font-size:12px;
+    font-size:10px;
+}
+
+.small-space{
+    margin-top:8px;
 }
 
 </style>
@@ -115,7 +130,12 @@ th{
 HDC Holistic Domain of Creativity
 </h1>
 
-<div style="display:flex;justify-content:space-between;align-items:center;">
+<div style="
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:8px;
+">
 
 <div>
 <b>Date:</b> {{date}}
@@ -221,7 +241,7 @@ No checkup data
 
 </table>
 
-<div style="padding:15px;">
+<div style="padding:8px;">
 <b>Dental Complaint:</b>
 {{checkups[0].complaint if checkups else ""}}
 </div>
