@@ -4,6 +4,7 @@ from app.core.database import db
 from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
+from urllib.parse import unquote
 
 router = APIRouter()
 
@@ -17,9 +18,18 @@ def generate_invoice(patient_name: str):
 
     billing = db["billing"]
 
+    # 🔥 DECODE URL
+    decoded_name = unquote(patient_name)
+
+    # 🔥 FIND BILLING
     inv = list(
         billing.find(
-            {"patient_name": patient_name}
+            {
+                "patient_name": {
+                    "$regex": f"^{decoded_name}$",
+                    "$options": "i"
+                }
+            }
         )
     )
 
@@ -30,6 +40,9 @@ def generate_invoice(patient_name: str):
 
     total = 0
 
+    # =========================
+    # BUILD BILL LIST
+    # =========================
     for i in inv:
 
         bills.append({
@@ -43,6 +56,9 @@ def generate_invoice(patient_name: str):
             i.get("amount", 0)
         )
 
+    # =========================
+    # TEMPLATE
+    # =========================
     env = Environment(
         loader=FileSystemLoader(
             "app/templates"
@@ -53,15 +69,24 @@ def generate_invoice(patient_name: str):
         "invoice.html"
     )
 
+    # =========================
+    # PATIENT
+    # =========================
     patient = patients.find_one({
-        "name": patient_name
+        "name": {
+            "$regex": f"^{decoded_name}$",
+            "$options": "i"
+        }
     }) or {}
 
+    # =========================
+    # RENDER HTML
+    # =========================
     html_content = template.render(
 
         patient=patient,
 
-        name=patient_name,
+        name=decoded_name,
 
         date=datetime.now().strftime(
             "%Y-%m-%d"
@@ -80,6 +105,9 @@ def generate_invoice(patient_name: str):
         balance=total
     )
 
+    # =========================
+    # PDF
+    # =========================
     pdf = HTML(
         string=html_content
     ).write_pdf()
