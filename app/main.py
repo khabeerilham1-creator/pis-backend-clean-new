@@ -33,6 +33,9 @@ from app.routes.acc_ws import router as acc_ws_router
 # 🔥 PERMISSIONS
 from app.routes.permissions import router as permissions_router
 
+# 🔥 ACCOUNT STATUS
+from app.routes.account_status import router as account_status_router
+
 
 # =========================
 # APP INIT
@@ -136,6 +139,13 @@ app.include_router(
     lvi_router,
     prefix="/lvi",
     tags=["LVI"]
+)
+
+# 🔥 ACCOUNT STATUS
+app.include_router(
+    account_status_router,
+    prefix="/account-status",
+    tags=["Account Status"]
 )
 
 # REPORTS
