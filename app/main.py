@@ -45,6 +45,9 @@ from app.routes.completed_cases import router as completed_cases_router
 # ⏳ PENDING CASES
 from app.routes.pending_cases import router as pending_cases_router
 
+# 📅 TO BE APPOINTED
+from app.routes.to_be_appointed import router as to_be_appointed_router
+
 
 # =========================
 # APP INIT
@@ -176,6 +179,13 @@ app.include_router(
     pending_cases_router,
     prefix="/pending-cases",
     tags=["Pending Cases"]
+)
+
+# 📅 TO BE APPOINTED
+app.include_router(
+    to_be_appointed_router,
+    prefix="/to-be-appointed",
+    tags=["To Be Appointed"]
 )
 
 # REPORTS
