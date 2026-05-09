@@ -18,6 +18,7 @@ from reportlab.lib.pagesizes import letter
 router = APIRouter()
 
 invoice_collection = db["invoices"]
+patients_collection = db["patients"]
 
 # ==========================================
 # COLOR GRADING SYSTEM
@@ -28,6 +29,14 @@ CATEGORY_COLORS = {
     "PURPLE": "#9333ea",
     "RED": "#dc2626",
     "GOLD": "#ca8a04"
+}
+
+LIGHT_COLORS = {
+    "GREEN": "#dcfce7",
+    "BLUE": "#dbeafe",
+    "PURPLE": "#f3e8ff",
+    "RED": "#fee2e2",
+    "GOLD": "#fef9c3"
 }
 
 # ==========================================
@@ -157,19 +166,28 @@ async def generate_pdf(
         }
 
     # ==========================================
-    # CATEGORY COLOR
+    # PATIENT CATEGORY
     # ==========================================
-    category = invoice.get(
-        "category",
-        "GREEN"
-    )
+    patient = patients_collection.find_one({
+        "name": patient_name
+    })
+
+    category = "GREEN"
+
+    if patient:
+
+        category = patient.get(
+            "category",
+            "GREEN"
+        )
 
     main_color = CATEGORY_COLORS.get(
         category,
         "#16a34a"
     )
 
-    light_color = colors.HexColor(
+    light_color = LIGHT_COLORS.get(
+        category,
         "#dcfce7"
     )
 
@@ -242,7 +260,7 @@ async def generate_pdf(
     )
 
     # ==========================================
-    # PATIENT
+    # PATIENT INFO
     # ==========================================
     patient_info = Paragraph(
         f"<b>Patient:</b> {patient_name}",
@@ -274,7 +292,7 @@ async def generate_pdf(
             "BACKGROUND",
             (0,0),
             (-1,-1),
-            light_color
+            colors.HexColor(light_color)
         ),
 
         (
@@ -370,7 +388,7 @@ async def generate_pdf(
             "BACKGROUND",
             (0,0),
             (-1,0),
-            light_color
+            colors.HexColor(light_color)
         ),
 
         (
@@ -428,7 +446,7 @@ async def generate_pdf(
     )
 
     # ==========================================
-    # SUMMARY HEADER
+    # SUMMARY TITLE
     # ==========================================
     summary_header = Table(
         [[
@@ -446,7 +464,7 @@ async def generate_pdf(
             "BACKGROUND",
             (0,0),
             (-1,-1),
-            light_color
+            colors.HexColor(light_color)
         ),
 
         (
@@ -556,7 +574,7 @@ async def generate_pdf(
     elements.append(summary)
 
     # ==========================================
-    # BUILD PDF
+    # BUILD
     # ==========================================
     doc.build(elements)
 
