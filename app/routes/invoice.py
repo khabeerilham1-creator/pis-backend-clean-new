@@ -179,7 +179,7 @@ async def generate_pdf(
         category = patient.get(
             "category",
             "GREEN"
-        )
+        ).upper()
 
     main_color = CATEGORY_COLORS.get(
         category,
