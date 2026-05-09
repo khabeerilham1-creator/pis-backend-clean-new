@@ -17,12 +17,22 @@ from reportlab.lib.pagesizes import letter
 
 router = APIRouter()
 
-# 🔥 FIXED COLLECTION
 invoice_collection = db["invoices"]
 
-# =========================
+# ==========================================
+# COLOR GRADING SYSTEM
+# ==========================================
+CATEGORY_COLORS = {
+    "GREEN": "#16a34a",
+    "BLUE": "#2563eb",
+    "PURPLE": "#9333ea",
+    "RED": "#dc2626",
+    "GOLD": "#ca8a04"
+}
+
+# ==========================================
 # CREATE
-# =========================
+# ==========================================
 @router.post("/")
 async def create_invoice(data: dict):
 
@@ -49,10 +59,9 @@ async def create_invoice(data: dict):
 
     return data
 
-
-# =========================
-# GET ALL
-# =========================
+# ==========================================
+# GET
+# ==========================================
 @router.get("/")
 async def get_invoices():
 
@@ -66,10 +75,9 @@ async def get_invoices():
 
     return data
 
-
-# =========================
+# ==========================================
 # UPDATE
-# =========================
+# ==========================================
 @router.put("/{id}")
 async def update_invoice(
     id: str,
@@ -104,10 +112,9 @@ async def update_invoice(
         "msg": "Updated"
     }
 
-
-# =========================
+# ==========================================
 # DELETE
-# =========================
+# ==========================================
 @router.delete("/{id}")
 async def delete_invoice(id: str):
 
@@ -119,10 +126,9 @@ async def delete_invoice(id: str):
         "msg": "Deleted"
     }
 
-
-# =========================
+# ==========================================
 # PDF
-# =========================
+# ==========================================
 @router.get("/pdf/{patient_name}")
 async def generate_pdf(
     patient_name: str
@@ -137,6 +143,23 @@ async def generate_pdf(
         return {
             "msg": "No invoice"
         }
+
+    # ==========================================
+    # CATEGORY COLOR
+    # ==========================================
+    category = invoice.get(
+        "category",
+        "GREEN"
+    )
+
+    main_color = CATEGORY_COLORS.get(
+        category,
+        "#16a34a"
+    )
+
+    light_color = colors.HexColor(
+        "#dcfce7"
+    )
 
     filename = (
         f"{patient_name}.pdf"
@@ -155,13 +178,58 @@ async def generate_pdf(
 
     elements = []
 
-    # =========================
+    # ==========================================
     # TITLE
-    # =========================
-    title = Paragraph(
-        f"<b>Invoice - {patient_name}</b>",
-        styles["Title"]
+    # ==========================================
+    title = Table(
+        [[
+            Paragraph(
+                "<font color='white'><b>HDC Invoice</b></font>",
+                styles["Title"]
+            )
+        ]],
+        colWidths=[500]
     )
+
+    title.setStyle(TableStyle([
+
+        (
+            "BACKGROUND",
+            (0,0),
+            (-1,-1),
+            colors.HexColor(main_color)
+        ),
+
+        (
+            "ALIGN",
+            (0,0),
+            (-1,-1),
+            "CENTER"
+        ),
+
+        (
+            "BOX",
+            (0,0),
+            (-1,-1),
+            1,
+            colors.HexColor(main_color)
+        ),
+
+        (
+            "TOPPADDING",
+            (0,0),
+            (-1,-1),
+            18
+        ),
+
+        (
+            "BOTTOMPADDING",
+            (0,0),
+            (-1,-1),
+            18
+        )
+
+    ]))
 
     elements.append(title)
 
@@ -169,80 +237,87 @@ async def generate_pdf(
         Spacer(1, 20)
     )
 
-    # =========================
-    # PATIENT
-    # =========================
-    patient = Paragraph(
+    # ==========================================
+    # PATIENT INFO
+    # ==========================================
+    patient_info = Paragraph(
         f"<b>Patient:</b> {patient_name}",
         styles["Heading2"]
     )
 
-    elements.append(patient)
+    elements.append(patient_info)
 
     elements.append(
-        Spacer(1, 20)
+        Spacer(1, 15)
     )
 
-    # =========================
-    # TABLE
-    # =========================
-    data = [
-        [
-            "Procedure",
-            "Doctor",
-            "Qty",
-            "Rate",
-            "Amount"
-        ]
-    ]
+    # ==========================================
+    # BILLING HEADER
+    # ==========================================
+    billing_header = Table(
+        [[
+            Paragraph(
+                f"<font color='{main_color}'><b>BILLING DETAILS</b></font>",
+                styles["Heading3"]
+            )
+        ]],
+        colWidths=[500]
+    )
+
+    billing_header.setStyle(TableStyle([
+
+        (
+            "BACKGROUND",
+            (0,0),
+            (-1,-1),
+            light_color
+        ),
+
+        (
+            "BOX",
+            (0,0),
+            (-1,-1),
+            1,
+            colors.HexColor(main_color)
+        ),
+
+        (
+            "TOPPADDING",
+            (0,0),
+            (-1,-1),
+            10
+        ),
+
+        (
+            "BOTTOMPADDING",
+            (0,0),
+            (-1,-1),
+            10
+        )
+
+    ]))
+
+    elements.append(
+        billing_header
+    )
+
+    # ==========================================
+    # TABLE DATA
+    # ==========================================
+    data = [[
+        "Procedure",
+        "Doctor",
+        "Qty",
+        "Rate",
+        "Amount"
+    ]]
 
     rows = invoice.get("rows", [])
 
-    # OLD DATA SUPPORT
-    if not rows:
-
-        procedures = (
-            invoice.get(
-                "procedure",
-                ""
-            ).split(",")
-        )
-
-        doctors = (
-            invoice.get(
-                "doctor",
-                ""
-            ).split(",")
-        )
-
-        for i, proc in enumerate(
-            procedures
-        ):
-
-            amount_per = int(
-                invoice.get(
-                    "amount",
-                    0
-                ) / len(procedures)
-            )
-
-            data.append([
-
-                proc.strip(),
-
-                doctors[i].strip()
-                if i < len(doctors)
-                else "",
-
-                "1",
-
-                str(amount_per),
-
-                str(amount_per)
-
-            ])
-
-    else:
+    # ==========================================
+    # NEW DATA
+    # ==========================================
+    if rows:
 
         for row in rows:
 
@@ -253,6 +328,8 @@ async def generate_pdf(
             rate = float(
                 row.get("rate", 0)
             )
+
+            amount = qty * rate
 
             data.append([
 
@@ -268,20 +345,72 @@ async def generate_pdf(
 
                 str(qty),
 
-                str(rate),
+                f"Rs {rate}",
 
-                str(qty * rate)
+                f"Rs {amount}"
 
             ])
 
+    # ==========================================
+    # OLD DATA SUPPORT
+    # ==========================================
+    else:
+
+        procedures = (
+            invoice.get(
+                "procedure",
+                ""
+            ).split(",")
+        )
+
+        doctors = (
+            invoice.get(
+                "doctor",
+                ""
+            ).split(",")
+        )
+
+        split_amount = int(
+            invoice.get(
+                "amount",
+                0
+            ) / max(
+                len(procedures),
+                1
+            )
+        )
+
+        for i, proc in enumerate(
+            procedures
+        ):
+
+            data.append([
+
+                proc.strip(),
+
+                doctors[i].strip()
+                if i < len(doctors)
+                else "",
+
+                "1",
+
+                f"Rs {split_amount}",
+
+                f"Rs {split_amount}"
+
+            ])
+
+    # ==========================================
+    # MAIN TABLE
+    # ==========================================
     table = Table(
         data,
         colWidths=[
-            180,
+            190,
             120,
             50,
             70,
-            80
+            70
         ]
     )
 
@@ -291,14 +420,7 @@ async def generate_pdf(
             "BACKGROUND",
             (0,0),
             (-1,0),
-            colors.lightgrey
-        ),
-
-        (
-            "TEXTCOLOR",
-            (0,0),
-            (-1,0),
-            colors.black
+            light_color
         ),
 
         (
@@ -313,14 +435,15 @@ async def generate_pdf(
             (0,0),
             (-1,-1),
             1,
-            colors.black
+            colors.HexColor("#d1d5db")
         ),
 
         (
-            "BOTTOMPADDING",
+            "BOX",
             (0,0),
-            (-1,0),
-            10
+            (-1,-1),
+            1,
+            colors.HexColor(main_color)
         ),
 
         (
@@ -328,6 +451,20 @@ async def generate_pdf(
             (2,1),
             (-1,-1),
             "CENTER"
+        ),
+
+        (
+            "TOPPADDING",
+            (0,0),
+            (-1,-1),
+            8
+        ),
+
+        (
+            "BOTTOMPADDING",
+            (0,0),
+            (-1,-1),
+            8
         )
 
     ]))
@@ -335,51 +472,86 @@ async def generate_pdf(
     elements.append(table)
 
     elements.append(
-        Spacer(1, 30)
+        Spacer(1, 25)
     )
 
-    # =========================
-    # SUMMARY
-    # =========================
+    # ==========================================
+    # SUMMARY HEADER
+    # ==========================================
+    summary_header = Table(
+        [[
+            Paragraph(
+                f"<font color='{main_color}'><b>SUMMARY</b></font>",
+                styles["Heading3"]
+            )
+        ]],
+        colWidths=[500]
+    )
+
+    summary_header.setStyle(TableStyle([
+
+        (
+            "BACKGROUND",
+            (0,0),
+            (-1,-1),
+            light_color
+        ),
+
+        (
+            "BOX",
+            (0,0),
+            (-1,-1),
+            1,
+            colors.HexColor(main_color)
+        ),
+
+        (
+            "TOPPADDING",
+            (0,0),
+            (-1,-1),
+            10
+        ),
+
+        (
+            "BOTTOMPADDING",
+            (0,0),
+            (-1,-1),
+            10
+        )
+
+    ]))
+
+    elements.append(
+        summary_header
+    )
+
+    # ==========================================
+    # SUMMARY TABLE
+    # ==========================================
     summary = Table([
 
         [
             "Total",
-            invoice.get(
-                "amount",
-                0
-            )
+            f"Rs {invoice.get('amount', 0)}"
         ],
 
         [
             "Discount",
-            invoice.get(
-                "discount",
-                0
-            )
+            f"Rs {invoice.get('discount', 0)}"
         ],
 
         [
             "Paid",
-            invoice.get(
-                "paid",
-                0
-            )
+            f"Rs {invoice.get('paid', 0)}"
         ],
 
         [
             "Balance",
-            invoice.get(
-                "balance",
-                0
-            )
+            f"Rs {invoice.get('balance', 0)}"
         ]
 
     ],
-    colWidths=[
-        200,
-        150
-    ])
+    colWidths=[250, 250])
 
     summary.setStyle(TableStyle([
 
@@ -388,7 +560,15 @@ async def generate_pdf(
             (0,0),
             (-1,-1),
             1,
-            colors.black
+            colors.HexColor("#d1d5db")
+        ),
+
+        (
+            "BOX",
+            (0,0),
+            (-1,-1),
+            1,
+            colors.HexColor(main_color)
         ),
 
         (
@@ -399,16 +579,33 @@ async def generate_pdf(
         ),
 
         (
-            "BACKGROUND",
+            "ALIGN",
+            (1,0),
+            (-1,-1),
+            "CENTER"
+        ),
+
+        (
+            "TOPPADDING",
             (0,0),
             (-1,-1),
-            colors.whitesmoke
+            10
+        ),
+
+        (
+            "BOTTOMPADDING",
+            (0,0),
+            (-1,-1),
+            10
         )
 
     ]))
 
     elements.append(summary)
 
+    # ==========================================
+    # BUILD
+    # ==========================================
     doc.build(elements)
 
     return FileResponse(
