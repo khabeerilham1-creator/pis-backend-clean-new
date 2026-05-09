@@ -1,149 +1,116 @@
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response
+from fastapi import APIRouter
+from fastapi.responses import FileResponse
 from app.core.database import db
 from bson import ObjectId
-from datetime import datetime
-from jinja2 import Environment, FileSystemLoader
-from weasyprint import HTML
+
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Table,
+    TableStyle,
+    Paragraph,
+    Spacer
+)
+
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import letter
 
 router = APIRouter()
 
-invoices = db["invoices"]
-patients = db["patients"]
-
+invoice_collection = db["invoice"]
 
 # =========================
 # CREATE
 # =========================
 @router.post("/")
-def create_invoice(data: dict):
+async def create_invoice(data: dict):
 
-    patient_name = data.get("patient_name")
-    rows = data.get("rows", [])
-    payments = data.get("payments", [])
-    discount = float(data.get("discount", 0))
-
-    if not patient_name:
-        raise HTTPException(
-            status_code=400,
-            detail="Patient required"
-        )
-
-    total = sum(
-        float(r.get("rate", 0))
-        for r in rows
-    )
-
-    paid = sum(
+    total_paid = sum([
         float(p.get("amount", 0))
-        for p in payments
+        for p in data.get("payments", [])
+    ])
+
+    amount = float(
+        data.get("amount", 0)
     )
 
-    final = total - discount
+    data["paid"] = total_paid
 
-    balance = final - paid
+    data["balance"] = (
+        amount - total_paid
+    )
 
-    invoice = {
+    result = invoice_collection.insert_one(data)
 
-        "patient_name": patient_name,
+    data["_id"] = str(
+        result.inserted_id
+    )
 
-        "rows": rows,
+    return data
 
-        "payments": payments,
 
-        "amount": total,
+# =========================
+# GET ALL
+# =========================
+@router.get("/")
+async def get_invoices():
 
-        "discount": discount,
+    data = []
 
-        "final": final,
+    for item in invoice_collection.find():
 
-        "paid": paid,
+        item["_id"] = str(item["_id"])
 
-        "balance": balance,
+        data.append(item)
 
-        "created_at": datetime.utcnow()
-    }
-
-    res = invoices.insert_one(invoice)
-
-    return {
-        "id": str(res.inserted_id)
-    }
+    return data
 
 
 # =========================
 # UPDATE
 # =========================
 @router.put("/{id}")
-def update_invoice(id: str, data: dict):
+async def update_invoice(
+    id: str,
+    data: dict
+):
 
-    rows = data.get("rows", [])
-
-    payments = data.get("payments", [])
-
-    discount = float(
-        data.get("discount", 0)
-    )
-
-    total = sum(
-        float(r.get("rate", 0))
-        for r in rows
-    )
-
-    paid = sum(
+    total_paid = sum([
         float(p.get("amount", 0))
-        for p in payments
+        for p in data.get("payments", [])
+    ])
+
+    amount = float(
+        data.get("amount", 0)
     )
 
-    final = total - discount
+    data["paid"] = total_paid
 
-    balance = final - paid
+    data["balance"] = (
+        amount - total_paid
+    )
 
-    data.update({
-
-        "amount": total,
-
-        "final": final,
-
-        "paid": paid,
-
-        "balance": balance
-    })
-
-    invoices.update_one(
-        {"_id": ObjectId(id)},
-        {"$set": data}
+    invoice_collection.update_one(
+        {
+            "_id": ObjectId(id)
+        },
+        {
+            "$set": data
+        }
     )
 
     return {
-        "msg": "Updated ✅"
+        "msg": "Updated"
     }
-
-
-# =========================
-# GET
-# =========================
-@router.get("/")
-def get_invoices():
-
-    data = []
-
-    for i in invoices.find():
-
-        i["_id"] = str(i["_id"])
-
-        data.append(i)
-
-    return data
 
 
 # =========================
 # DELETE
 # =========================
 @router.delete("/{id}")
-def delete_invoice(id: str):
+async def delete_invoice(id: str):
 
-    invoices.delete_one({
+    invoice_collection.delete_one({
         "_id": ObjectId(id)
     })
 
@@ -156,119 +123,302 @@ def delete_invoice(id: str):
 # PDF
 # =========================
 @router.get("/pdf/{patient_name}")
-def generate_invoice(patient_name: str):
+async def generate_pdf(
+    patient_name: str
+):
 
-    inv = list(
-        invoices.find(
-            {"patient_name": patient_name},
-            {"_id": 0}
-        )
-    )
+    invoice = invoice_collection.find_one({
+        "patient_name": patient_name
+    })
 
-    if not inv:
+    if not invoice:
 
         return {
             "msg": "No invoice"
         }
 
-    bills = []
-
-    payments = []
-
-    total = 0
-
-    discount = 0
-
-    paid = 0
-
-    for i in inv:
-
-        for r in i.get("rows", []):
-
-            bills.append({
-
-                "procedure":
-                    r.get("treatment"),
-
-                "qty":
-                    r.get("qty", ""),
-
-                "rate":
-                    r.get("rate"),
-
-                "amount":
-                    r.get("rate")
-            })
-
-        payments.extend(
-            i.get("payments", [])
-        )
-
-        total += float(
-            i.get("amount", 0)
-        )
-
-        discount += float(
-            i.get("discount", 0)
-        )
-
-        paid += float(
-            i.get("paid", 0)
-        )
-
-    final = total - discount
-
-    balance = final - paid
-
-    env = Environment(
-        loader=FileSystemLoader(
-            "app/templates"
-        )
+    filename = (
+        f"{patient_name}.pdf"
     )
 
-    template = env.get_template(
-        "invoice.html"
+    doc = SimpleDocTemplate(
+        filename,
+        pagesize=letter,
+        rightMargin=30,
+        leftMargin=30,
+        topMargin=30,
+        bottomMargin=20
     )
 
-    patient = patients.find_one({
-        "name": patient_name
-    }) or {}
+    styles = getSampleStyleSheet()
 
-    html_content = template.render(
+    elements = []
 
-        patient=patient,
+    # =========================
+    # TITLE
+    # =========================
+    title = Paragraph(
+        f"<b>Invoice - {patient_name}</b>",
+        styles["Title"]
+    )
 
-        name=patient_name,
+    elements.append(title)
 
-        date=datetime.now().strftime(
-            "%Y-%m-%d"
+    elements.append(
+        Spacer(1, 20)
+    )
+
+    # =========================
+    # PATIENT
+    # =========================
+    patient = Paragraph(
+        f"<b>Patient:</b> {patient_name}",
+        styles["Heading2"]
+    )
+
+    elements.append(patient)
+
+    elements.append(
+        Spacer(1, 20)
+    )
+
+    # =========================
+    # BILLING TABLE
+    # =========================
+    data = [
+        [
+            "Procedure",
+            "Doctor",
+            "Qty",
+            "Rate",
+            "Amount"
+        ]
+    ]
+
+    rows = invoice.get("rows", [])
+
+    # 🔥 OLD DATA SUPPORT
+    if not rows:
+
+        procedures = (
+            invoice.get(
+                "procedure",
+                ""
+            ).split(",")
+        )
+
+        doctors = (
+            invoice.get(
+                "doctor",
+                ""
+            ).split(",")
+        )
+
+        for i, proc in enumerate(
+            procedures
+        ):
+
+            data.append([
+
+                proc.strip(),
+
+                doctors[i].strip()
+                if i < len(doctors)
+                else "",
+
+                "1",
+
+                str(
+                    int(
+                        invoice.get(
+                            "amount",
+                            0
+                        ) / len(procedures)
+                    )
+                ),
+
+                str(
+                    int(
+                        invoice.get(
+                            "amount",
+                            0
+                        ) / len(procedures)
+                    )
+                )
+
+            ])
+
+    else:
+
+        for row in rows:
+
+            qty = int(
+                row.get("qty", 1)
+            )
+
+            rate = float(
+                row.get("rate", 0)
+            )
+
+            data.append([
+
+                row.get(
+                    "treatment",
+                    ""
+                ),
+
+                row.get(
+                    "doctor",
+                    ""
+                ),
+
+                str(qty),
+
+                str(rate),
+
+                str(qty * rate)
+
+            ])
+
+    table = Table(
+        data,
+        colWidths=[
+            180,
+            120,
+            50,
+            70,
+            80
+        ]
+    )
+
+    table.setStyle(TableStyle([
+
+        (
+            "BACKGROUND",
+            (0,0),
+            (-1,0),
+            colors.lightgrey
         ),
 
-        bills=bills,
+        (
+            "TEXTCOLOR",
+            (0,0),
+            (-1,0),
+            colors.black
+        ),
 
-        payments=payments,
+        (
+            "FONTNAME",
+            (0,0),
+            (-1,0),
+            "Helvetica-Bold"
+        ),
 
-        total=total,
+        (
+            "GRID",
+            (0,0),
+            (-1,-1),
+            1,
+            colors.black
+        ),
 
-        discount=discount,
+        (
+            "BOTTOMPADDING",
+            (0,0),
+            (-1,0),
+            10
+        ),
 
-        paid=paid,
+        (
+            "ALIGN",
+            (2,1),
+            (-1,-1),
+            "CENTER"
+        )
 
-        balance=balance
+    ]))
+
+    elements.append(table)
+
+    elements.append(
+        Spacer(1, 30)
     )
 
-    pdf = HTML(
-        string=html_content
-    ).write_pdf()
+    # =========================
+    # SUMMARY
+    # =========================
+    summary = Table([
 
-    return Response(
+        [
+            "Total",
+            invoice.get(
+                "amount",
+                0
+            )
+        ],
 
-        content=pdf,
+        [
+            "Discount",
+            invoice.get(
+                "discount",
+                0
+            )
+        ],
 
+        [
+            "Paid",
+            invoice.get(
+                "paid",
+                0
+            )
+        ],
+
+        [
+            "Balance",
+            invoice.get(
+                "balance",
+                0
+            )
+        ]
+
+    ],
+    colWidths=[
+        200,
+        150
+    ])
+
+    summary.setStyle(TableStyle([
+
+        (
+            "GRID",
+            (0,0),
+            (-1,-1),
+            1,
+            colors.black
+        ),
+
+        (
+            "FONTNAME",
+            (0,0),
+            (-1,-1),
+            "Helvetica-Bold"
+        ),
+
+        (
+            "BACKGROUND",
+            (0,0),
+            (-1,-1),
+            colors.whitesmoke
+        )
+
+    ]))
+
+    elements.append(summary)
+
+    doc.build(elements)
+
+    return FileResponse(
+        filename,
         media_type="application/pdf",
-
-        headers={
-            "Content-Disposition":
-            "inline; filename=invoice.pdf"
-        }
+        filename=filename
     )
