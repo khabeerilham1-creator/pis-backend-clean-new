@@ -8,48 +8,85 @@ from urllib.parse import unquote
 
 router = APIRouter()
 
+billing = db["billing"]
 patients = db["patients"]
 
+
 # =========================
-# PDF FROM FIS
+# GET ALL INVOICES FROM FIS
+# =========================
+@router.get("/")
+def get_invoices():
+
+    data = []
+
+    for i in billing.find():
+
+        i["_id"] = str(i["_id"])
+
+        data.append(i)
+
+    return data
+
+
+# =========================
+# PDF GENERATOR
 # =========================
 @router.get("/pdf/{patient_name}")
 def generate_invoice(patient_name: str):
 
-    billing = db["billing"]
+    decoded_name = unquote(patient_name).strip()
 
-    # 🔥 DECODE URL
-    decoded_name = unquote(patient_name)
+    # 🔥 DEBUG
+    print("SEARCHING:", decoded_name)
 
-    # 🔥 FIND BILLING
-    inv = list(
-        billing.find(
-            {
-                "patient_name": {
-                    "$regex": f"^{decoded_name}$",
-                    "$options": "i"
-                }
-            }
-        )
+    # 🔥 LOAD BILLING
+    invoices = list(
+        billing.find()
     )
 
-    if not inv:
-        return {"msg": "No invoice"}
+    matched = []
+
+    for i in invoices:
+
+        db_name = str(
+            i.get("patient_name", "")
+        ).strip()
+
+        print("DB:", db_name)
+
+        if db_name.lower() == decoded_name.lower():
+
+            matched.append(i)
+
+    if not matched:
+
+        return {
+            "msg": "No invoice",
+            "searched": decoded_name
+        }
 
     bills = []
 
     total = 0
 
     # =========================
-    # BUILD BILL LIST
+    # BUILD BILL DATA
     # =========================
-    for i in inv:
+    for i in matched:
 
         bills.append({
-            "procedure": i.get("procedure"),
+
+            "procedure":
+                i.get("procedure", ""),
+
             "qty": 1,
-            "rate": i.get("amount", 0),
-            "amount": i.get("amount", 0)
+
+            "rate":
+                i.get("amount", 0),
+
+            "amount":
+                i.get("amount", 0)
         })
 
         total += float(
@@ -74,13 +111,14 @@ def generate_invoice(patient_name: str):
     # =========================
     patient = patients.find_one({
         "name": {
-            "$regex": f"^{decoded_name}$",
+            "$regex":
+                f"^{decoded_name}$",
             "$options": "i"
         }
     }) or {}
 
     # =========================
-    # RENDER HTML
+    # RENDER
     # =========================
     html_content = template.render(
 
