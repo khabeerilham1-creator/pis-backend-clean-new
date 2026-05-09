@@ -45,10 +45,16 @@ async def create_invoice(data: dict):
         data.get("amount", 0)
     )
 
+    discount = float(
+        data.get("discount", 0)
+    )
+
+    final_amount = amount - discount
+
     data["paid"] = total_paid
 
     data["balance"] = (
-        amount - total_paid
+        final_amount - total_paid
     )
 
     result = invoice_collection.insert_one(data)
@@ -93,10 +99,16 @@ async def update_invoice(
         data.get("amount", 0)
     )
 
+    discount = float(
+        data.get("discount", 0)
+    )
+
+    final_amount = amount - discount
+
     data["paid"] = total_paid
 
     data["balance"] = (
-        amount - total_paid
+        final_amount - total_paid
     )
 
     invoice_collection.update_one(
@@ -188,7 +200,7 @@ async def generate_pdf(
                 styles["Title"]
             )
         ]],
-        colWidths=[500]
+        colWidths=[520]
     )
 
     title.setStyle(TableStyle([
@@ -205,14 +217,6 @@ async def generate_pdf(
             (0,0),
             (-1,-1),
             "CENTER"
-        ),
-
-        (
-            "BOX",
-            (0,0),
-            (-1,-1),
-            1,
-            colors.HexColor(main_color)
         ),
 
         (
@@ -234,11 +238,11 @@ async def generate_pdf(
     elements.append(title)
 
     elements.append(
-        Spacer(1, 20)
+        Spacer(1, 25)
     )
 
     # ==========================================
-    # PATIENT INFO
+    # PATIENT
     # ==========================================
     patient_info = Paragraph(
         f"<b>Patient:</b> {patient_name}",
@@ -252,7 +256,7 @@ async def generate_pdf(
     )
 
     # ==========================================
-    # BILLING HEADER
+    # BILLING TITLE
     # ==========================================
     billing_header = Table(
         [[
@@ -261,7 +265,7 @@ async def generate_pdf(
                 styles["Heading3"]
             )
         ]],
-        colWidths=[500]
+        colWidths=[520]
     )
 
     billing_header.setStyle(TableStyle([
@@ -302,9 +306,9 @@ async def generate_pdf(
     )
 
     # ==========================================
-    # TABLE DATA
+    # BILLING TABLE
     # ==========================================
-    data = [[
+    table_data = [[
         "Procedure",
         "Doctor",
         "Qty",
@@ -312,109 +316,55 @@ async def generate_pdf(
         "Amount"
     ]]
 
-    rows = invoice.get("rows", [])
+    rows = invoice.get(
+        "rows",
+        []
+    )
 
-    # ==========================================
-    # NEW DATA
-    # ==========================================
-    if rows:
+    for row in rows:
 
-        for row in rows:
-
-            qty = int(
-                row.get("qty", 1)
-            )
-
-            rate = float(
-                row.get("rate", 0)
-            )
-
-            amount = qty * rate
-
-            data.append([
-
-                row.get(
-                    "treatment",
-                    ""
-                ),
-
-                row.get(
-                    "doctor",
-                    ""
-                ),
-
-                str(qty),
-
-                f"Rs {rate}",
-
-                f"Rs {amount}"
-
-            ])
-
-    # ==========================================
-    # OLD DATA SUPPORT
-    # ==========================================
-    else:
-
-        procedures = (
-            invoice.get(
-                "procedure",
-                ""
-            ).split(",")
+        qty = int(
+            row.get("qty", 1)
         )
 
-        doctors = (
-            invoice.get(
+        rate = float(
+            row.get("rate", 0)
+        )
+
+        amount = qty * rate
+
+        table_data.append([
+
+            row.get(
+                "treatment",
+                ""
+            ),
+
+            row.get(
                 "doctor",
                 ""
-            ).split(",")
-        )
+            ),
 
-        split_amount = int(
-            invoice.get(
-                "amount",
-                0
-            ) / max(
-                len(procedures),
-                1
-            )
-        )
+            str(qty),
 
-        for i, proc in enumerate(
-            procedures
-        ):
+            f"Rs {rate}",
 
-            data.append([
+            f"Rs {amount}"
 
-                proc.strip(),
+        ])
 
-                doctors[i].strip()
-                if i < len(doctors)
-                else "",
-
-                "1",
-
-                f"Rs {split_amount}",
-
-                f"Rs {split_amount}"
-
-            ])
-
-    # ==========================================
-    # MAIN TABLE
-    # ==========================================
-    table = Table(
-        data,
+    billing_table = Table(
+        table_data,
         colWidths=[
-            190,
+            200,
             120,
             50,
             70,
-            70
+            80
         ]
     )
 
-    table.setStyle(TableStyle([
+    billing_table.setStyle(TableStyle([
 
         (
             "BACKGROUND",
@@ -447,13 +397,6 @@ async def generate_pdf(
         ),
 
         (
-            "ALIGN",
-            (2,1),
-            (-1,-1),
-            "CENTER"
-        ),
-
-        (
             "TOPPADDING",
             (0,0),
             (-1,-1),
@@ -465,11 +408,20 @@ async def generate_pdf(
             (0,0),
             (-1,-1),
             8
+        ),
+
+        (
+            "VALIGN",
+            (0,0),
+            (-1,-1),
+            "MIDDLE"
         )
 
     ]))
 
-    elements.append(table)
+    elements.append(
+        billing_table
+    )
 
     elements.append(
         Spacer(1, 25)
@@ -485,7 +437,7 @@ async def generate_pdf(
                 styles["Heading3"]
             )
         ]],
-        colWidths=[500]
+        colWidths=[520]
     )
 
     summary_header.setStyle(TableStyle([
@@ -551,7 +503,7 @@ async def generate_pdf(
         ]
 
     ],
-    colWidths=[250, 250])
+    colWidths=[260, 260])
 
     summary.setStyle(TableStyle([
 
@@ -604,7 +556,7 @@ async def generate_pdf(
     elements.append(summary)
 
     # ==========================================
-    # BUILD
+    # BUILD PDF
     # ==========================================
     doc.build(elements)
 
