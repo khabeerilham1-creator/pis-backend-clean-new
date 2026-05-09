@@ -42,6 +42,9 @@ from app.routes.city_patients import router as city_patients_router
 # ✅ COMPLETED CASES
 from app.routes.completed_cases import router as completed_cases_router
 
+# ⏳ PENDING CASES
+from app.routes.pending_cases import router as pending_cases_router
+
 
 # =========================
 # APP INIT
@@ -166,6 +169,13 @@ app.include_router(
     completed_cases_router,
     prefix="/completed-cases",
     tags=["Completed Cases"]
+)
+
+# ⏳ PENDING CASES
+app.include_router(
+    pending_cases_router,
+    prefix="/pending-cases",
+    tags=["Pending Cases"]
 )
 
 # REPORTS
