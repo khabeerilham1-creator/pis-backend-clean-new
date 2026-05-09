@@ -5,9 +5,6 @@ router = APIRouter()
 
 invoice_collection = db["invoices"]
 
-# ==========================================
-# GET ACCOUNT STATUS
-# ==========================================
 @router.get("/")
 async def get_accounts():
 
@@ -33,10 +30,18 @@ async def get_accounts():
             inv.get("discount", 0)
         )
 
-        doctor_share = total * 0.25
+        lab_charge = float(
+            inv.get("lab_charge", 0)
+        )
+
+        doctor_share = (
+            total - lab_charge
+        ) * 0.25
 
         owner_profit = (
-            total - doctor_share
+            total -
+            doctor_share -
+            lab_charge
         )
 
         data.append({
@@ -58,6 +63,9 @@ async def get_accounts():
 
             "discount":
                 discount,
+
+            "lab_charge":
+                lab_charge,
 
             "doctor_share":
                 doctor_share,
