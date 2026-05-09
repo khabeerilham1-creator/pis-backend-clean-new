@@ -5,15 +5,10 @@ from bson import ObjectId
 from datetime import datetime
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
-from urllib.parse import unquote
 
 router = APIRouter()
 
-# =========================
-# COLLECTIONS
-# =========================
 invoices = db["invoices"]
-billing = db["billing"]
 patients = db["patients"]
 
 
@@ -46,48 +41,33 @@ def create_invoice(data: dict):
 
     final = total - discount
 
-    balance = (
-        0 if discount > 0
-        else (final - paid)
-    )
+    balance = final - paid
 
     invoice = {
 
-        "patient_name":
-            patient_name,
+        "patient_name": patient_name,
 
-        "rows":
-            rows,
+        "rows": rows,
 
-        "payments":
-            payments,
+        "payments": payments,
 
-        "amount":
-            total,
+        "amount": total,
 
-        "discount":
-            discount,
+        "discount": discount,
 
-        "final":
-            final,
+        "final": final,
 
-        "paid":
-            paid,
+        "paid": paid,
 
-        "balance":
-            balance,
+        "balance": balance,
 
-        "created_at":
-            datetime.utcnow()
+        "created_at": datetime.utcnow()
     }
 
-    res = invoices.insert_one(
-        invoice
-    )
+    res = invoices.insert_one(invoice)
 
     return {
-        "id":
-            str(res.inserted_id)
+        "id": str(res.inserted_id)
     }
 
 
@@ -97,63 +77,47 @@ def create_invoice(data: dict):
 @router.put("/{id}")
 def update_invoice(id: str, data: dict):
 
-    try:
+    rows = data.get("rows", [])
 
-        rows = data.get("rows", [])
-        payments = data.get("payments", [])
-        discount = float(
-            data.get("discount", 0)
-        )
+    payments = data.get("payments", [])
 
-        total = sum(
-            float(r.get("rate", 0))
-            for r in rows
-        )
+    discount = float(
+        data.get("discount", 0)
+    )
 
-        paid = sum(
-            float(p.get("amount", 0))
-            for p in payments
-        )
+    total = sum(
+        float(r.get("rate", 0))
+        for r in rows
+    )
 
-        final = total - discount
+    paid = sum(
+        float(p.get("amount", 0))
+        for p in payments
+    )
 
-        balance = (
-            0 if discount > 0
-            else (final - paid)
-        )
+    final = total - discount
 
-        data.update({
+    balance = final - paid
 
-            "amount":
-                total,
+    data.update({
 
-            "final":
-                final,
+        "amount": total,
 
-            "paid":
-                paid,
+        "final": final,
 
-            "balance":
-                balance
-        })
+        "paid": paid,
 
-        invoices.update_one(
+        "balance": balance
+    })
 
-            {"_id": ObjectId(id)},
+    invoices.update_one(
+        {"_id": ObjectId(id)},
+        {"$set": data}
+    )
 
-            {"$set": data}
-        )
-
-        return {
-            "msg": "Updated ✅"
-        }
-
-    except Exception as e:
-
-        raise HTTPException(
-            status_code=500,
-            detail=str(e)
-        )
+    return {
+        "msg": "Updated ✅"
+    }
 
 
 # =========================
@@ -164,39 +128,11 @@ def get_invoices():
 
     data = []
 
-    # 🔥 NORMAL INVOICES
     for i in invoices.find():
 
         i["_id"] = str(i["_id"])
 
         data.append(i)
-
-    # 🔥 FIS RECORDS
-    for b in billing.find():
-
-        data.append({
-
-            "_id":
-                str(b["_id"]),
-
-            "patient_name":
-                b.get("patient_name"),
-
-            "amount":
-                b.get("amount", 0),
-
-            "paid":
-                0,
-
-            "balance":
-                b.get("amount", 0),
-
-            "procedure":
-                b.get("procedure", ""),
-
-            "from_fis":
-                True
-        })
 
     return data
 
@@ -222,98 +158,29 @@ def delete_invoice(id: str):
 @router.get("/pdf/{patient_name}")
 def generate_invoice(patient_name: str):
 
-    decoded_name = unquote(
-        patient_name
-    )
-
-    # =========================
-    # NORMAL INVOICE
-    # =========================
     inv = list(
-
         invoices.find(
-
-            {
-                "patient_name": {
-                    "$regex":
-                        f"^{decoded_name}$",
-
-                    "$options":
-                        "i"
-                }
-            },
-
+            {"patient_name": patient_name},
             {"_id": 0}
         )
     )
 
-    # =========================
-    # IF NOT FOUND LOAD FIS
-    # =========================
     if not inv:
 
-        fis_data = list(
-
-            billing.find(
-
-                {
-                    "patient_name": {
-                        "$regex":
-                            f"^{decoded_name}$",
-
-                        "$options":
-                            "i"
-                    }
-                }
-            )
-        )
-
-        if not fis_data:
-
-            return {
-                "msg": "No invoice"
-            }
-
-        inv = []
-
-        for f in fis_data:
-
-            inv.append({
-
-                "rows": [{
-
-                    "treatment":
-                        f.get("procedure"),
-
-                    "qty":
-                        1,
-
-                    "rate":
-                        f.get("amount", 0)
-                }],
-
-                "payments": [],
-
-                "amount":
-                    f.get("amount", 0),
-
-                "discount":
-                    0,
-
-                "paid":
-                    0
-            })
+        return {
+            "msg": "No invoice"
+        }
 
     bills = []
+
     payments = []
 
     total = 0
+
     discount = 0
+
     paid = 0
 
-    # =========================
-    # BUILD DATA
-    # =========================
     for i in inv:
 
         for r in i.get("rows", []):
@@ -351,18 +218,9 @@ def generate_invoice(patient_name: str):
 
     final = total - discount
 
-    balance = (
+    balance = final - paid
 
-        0 if discount > 0
-
-        else (final - paid)
-    )
-
-    # =========================
-    # TEMPLATE
-    # =========================
     env = Environment(
-
         loader=FileSystemLoader(
             "app/templates"
         )
@@ -372,30 +230,15 @@ def generate_invoice(patient_name: str):
         "invoice.html"
     )
 
-    # =========================
-    # PATIENT
-    # =========================
     patient = patients.find_one({
-
-        "name": {
-
-            "$regex":
-                f"^{decoded_name}$",
-
-            "$options":
-                "i"
-        }
-
+        "name": patient_name
     }) or {}
 
-    # =========================
-    # RENDER HTML
-    # =========================
     html_content = template.render(
 
         patient=patient,
 
-        name=decoded_name,
+        name=patient_name,
 
         date=datetime.now().strftime(
             "%Y-%m-%d"
@@ -414,9 +257,6 @@ def generate_invoice(patient_name: str):
         balance=balance
     )
 
-    # =========================
-    # GENERATE PDF
-    # =========================
     pdf = HTML(
         string=html_content
     ).write_pdf()
@@ -428,8 +268,7 @@ def generate_invoice(patient_name: str):
         media_type="application/pdf",
 
         headers={
-
             "Content-Disposition":
-                "inline; filename=invoice.pdf"
+            "inline; filename=invoice.pdf"
         }
     )
