@@ -17,7 +17,8 @@ from reportlab.lib.pagesizes import letter
 
 router = APIRouter()
 
-invoice_collection = db["invoice"]
+# 🔥 FIXED COLLECTION
+invoice_collection = db["invoices"]
 
 # =========================
 # CREATE
@@ -183,7 +184,7 @@ async def generate_pdf(
     )
 
     # =========================
-    # BILLING TABLE
+    # TABLE
     # =========================
     data = [
         [
@@ -197,7 +198,7 @@ async def generate_pdf(
 
     rows = invoice.get("rows", [])
 
-    # 🔥 OLD DATA SUPPORT
+    # OLD DATA SUPPORT
     if not rows:
 
         procedures = (
@@ -218,6 +219,13 @@ async def generate_pdf(
             procedures
         ):
 
+            amount_per = int(
+                invoice.get(
+                    "amount",
+                    0
+                ) / len(procedures)
+            )
+
             data.append([
 
                 proc.strip(),
@@ -228,23 +236,9 @@ async def generate_pdf(
 
                 "1",
 
-                str(
-                    int(
-                        invoice.get(
-                            "amount",
-                            0
-                        ) / len(procedures)
-                    )
-                ),
+                str(amount_per),
 
-                str(
-                    int(
-                        invoice.get(
-                            "amount",
-                            0
-                        ) / len(procedures)
-                    )
-                )
+                str(amount_per)
 
             ])
 
