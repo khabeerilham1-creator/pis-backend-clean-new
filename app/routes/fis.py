@@ -6,6 +6,7 @@ from app.core.database import db
 router = APIRouter()
 
 billing_collection = db["billing"]
+invoices = db["invoices"]
 
 
 # =========================
@@ -21,32 +22,76 @@ def create_bill(data: dict):
     owner_share = amount - doctor_share - lab_charge
 
     record = {
+
         "patient_name": data.get("patient_name"),
+
         "procedure": data.get("procedure"),
+
         "doctor": data.get("doctor"),
+
+        "rows": data.get("rows", []),
+
         "amount": amount,
+
         "lab_charge": lab_charge,
+
         "doctor_share": doctor_share,
+
         "owner_share": owner_share,
+
         "created_at": datetime.utcnow()
     }
 
     billing_collection.insert_one(record)
 
-    return {"msg": "Saved"}
+    # =========================
+    # AUTO CREATE INVOICE
+    # =========================
+
+    invoice = {
+
+        "patient_name": data.get("patient_name"),
+
+        "rows": data.get("rows", []),
+
+        "payments": [],
+
+        "amount": amount,
+
+        "discount": 0,
+
+        "final": amount,
+
+        "paid": 0,
+
+        "balance": amount,
+
+        "created_at": datetime.utcnow()
+    }
+
+    invoices.insert_one(invoice)
+
+    return {
+        "msg": "Saved"
+    }
 
 
 # =========================
-# GET ALL (IMPORTANT FIX)
+# GET ALL
 # =========================
 @router.get("/billing")
 def get_all_bills():
 
-    data = list(billing_collection.find())
+    data = list(
+        billing_collection.find()
+    )
 
     result = []
+
     for d in data:
+
         d["_id"] = str(d["_id"])
+
         result.append(d)
 
     return result
@@ -58,11 +103,18 @@ def get_all_bills():
 @router.get("/billing/{patient_name}")
 def get_by_patient(patient_name: str):
 
-    data = list(billing_collection.find({"patient_name": patient_name}))
+    data = list(
+        billing_collection.find({
+            "patient_name": patient_name
+        })
+    )
 
     result = []
+
     for d in data:
+
         d["_id"] = str(d["_id"])
+
         result.append(d)
 
     return result
@@ -75,30 +127,62 @@ def get_by_patient(patient_name: str):
 def update_bill(id: str, data: dict):
 
     if not ObjectId.is_valid(id):
-        raise HTTPException(status_code=400, detail="Invalid ID")
+
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid ID"
+        )
 
     amount = float(data.get("amount", 0))
-    lab_charge = float(data.get("lab_charge", 0))
+
+    lab_charge = float(
+        data.get("lab_charge", 0)
+    )
 
     doctor_share = amount * 0.25
-    owner_share = amount - doctor_share - lab_charge
+
+    owner_share = (
+        amount
+        - doctor_share
+        - lab_charge
+    )
 
     billing_collection.update_one(
+
         {"_id": ObjectId(id)},
+
         {
             "$set": {
-                "procedure": data.get("procedure"),
-                "doctor": data.get("doctor"),
+
+                "procedure":
+                data.get("procedure"),
+
+                "doctor":
+                data.get("doctor"),
+
+                "rows":
+                data.get("rows", []),
+
                 "amount": amount,
-                "lab_charge": lab_charge,
-                "doctor_share": doctor_share,
-                "owner_share": owner_share,
-                "updated_at": datetime.utcnow()
+
+                "lab_charge":
+                lab_charge,
+
+                "doctor_share":
+                doctor_share,
+
+                "owner_share":
+                owner_share,
+
+                "updated_at":
+                datetime.utcnow()
             }
         }
     )
 
-    return {"msg": "Updated"}
+    return {
+        "msg": "Updated"
+    }
 
 
 # =========================
@@ -108,8 +192,16 @@ def update_bill(id: str, data: dict):
 def delete_bill(id: str):
 
     if not ObjectId.is_valid(id):
-        raise HTTPException(status_code=400, detail="Invalid ID")
 
-    billing_collection.delete_one({"_id": ObjectId(id)})
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid ID"
+        )
 
-    return {"msg": "Deleted"}
+    billing_collection.delete_one({
+        "_id": ObjectId(id)
+    })
+
+    return {
+        "msg": "Deleted"
+    }
