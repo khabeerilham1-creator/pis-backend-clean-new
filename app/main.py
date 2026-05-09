@@ -39,6 +39,9 @@ from app.routes.account_status import router as account_status_router
 # 🌍 CITY PATIENTS
 from app.routes.city_patients import router as city_patients_router
 
+# ✅ COMPLETED CASES
+from app.routes.completed_cases import router as completed_cases_router
+
 
 # =========================
 # APP INIT
@@ -156,6 +159,13 @@ app.include_router(
     city_patients_router,
     prefix="/city-patients",
     tags=["City Patients"]
+)
+
+# ✅ COMPLETED CASES
+app.include_router(
+    completed_cases_router,
+    prefix="/completed-cases",
+    tags=["Completed Cases"]
 )
 
 # REPORTS
