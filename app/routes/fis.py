@@ -25,7 +25,7 @@ def create_bill(data: dict):
 
         "patient_name": data.get("patient_name"),
 
-        "procedure": data.get("procedure"),
+        "procedure": data.get("procedure", []),
 
         "doctor": data.get("doctor"),
 
