@@ -36,6 +36,9 @@ from app.routes.permissions import router as permissions_router
 # 🔥 ACCOUNT STATUS
 from app.routes.account_status import router as account_status_router
 
+# 🌍 CITY PATIENTS
+from app.routes.city_patients import router as city_patients_router
+
 
 # =========================
 # APP INIT
@@ -146,6 +149,13 @@ app.include_router(
     account_status_router,
     prefix="/account-status",
     tags=["Account Status"]
+)
+
+# 🌍 CITY PATIENTS
+app.include_router(
+    city_patients_router,
+    prefix="/city-patients",
+    tags=["City Patients"]
 )
 
 # REPORTS
