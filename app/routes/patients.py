@@ -86,7 +86,7 @@ def get_months():
 @router.get("/month/{year}/{month}")
 def get_month_patients(
     year: int,
-    month: str
+    month: int
 ):
 
     data = list(
@@ -94,7 +94,7 @@ def get_month_patients(
         patients.find({
 
             "year": year,
-            "month": month
+            "month_no": month
 
         }).sort("created_at", -1)
     )
@@ -118,7 +118,17 @@ async def create_patient(data: dict):
 
     try:
 
-        now = datetime.utcnow()
+        # 🔥 IMPORTANT FIX
+        if data.get("date"):
+
+            now = datetime.strptime(
+                data.get("date"),
+                "%Y-%m-%d"
+            )
+
+        else:
+
+            now = datetime.utcnow()
 
         patient = {
 
@@ -207,7 +217,7 @@ async def create_patient(data: dict):
             # DATE SYSTEM
             # =========================
             "created_at":
-            now,
+            datetime.utcnow(),
 
             "year":
             now.year,
@@ -257,6 +267,17 @@ async def update_patient(
 ):
 
     try:
+
+        if data.get("date"):
+
+            now = datetime.strptime(
+                data.get("date"),
+                "%Y-%m-%d"
+            )
+
+        else:
+
+            now = datetime.utcnow()
 
         patients.update_one(
 
@@ -386,7 +407,20 @@ async def update_patient(
                     data.get(
                         "complaints",
                         "segmental"
-                    )
+                    ),
+
+                    # 🔥 UPDATE MONTH DATA TOO
+                    "year":
+                    now.year,
+
+                    "month":
+                    now.strftime("%B"),
+
+                    "month_no":
+                    now.month,
+
+                    "day":
+                    now.day
                 }
             }
         )
