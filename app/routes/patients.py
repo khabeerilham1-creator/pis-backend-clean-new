@@ -39,7 +39,6 @@ def get_months():
                 "_id": {
 
                     "year": "$year",
-                    "month": "$month",
                     "month_no": "$month_no"
                 },
 
@@ -60,6 +59,22 @@ def get_months():
 
     result = []
 
+    month_names = {
+
+        1: "January",
+        2: "February",
+        3: "March",
+        4: "April",
+        5: "May",
+        6: "June",
+        7: "July",
+        8: "August",
+        9: "September",
+        10: "October",
+        11: "November",
+        12: "December"
+    }
+
     for m in months:
 
         result.append({
@@ -67,11 +82,14 @@ def get_months():
             "year":
             m["_id"]["year"],
 
-            "month":
-            m["_id"]["month"],
-
             "month_no":
             m["_id"]["month_no"],
+
+            "month":
+            month_names.get(
+                m["_id"]["month_no"],
+                ""
+            ),
 
             "count":
             m["count"]
@@ -118,17 +136,18 @@ async def create_patient(data: dict):
 
     try:
 
-        # 🔥 IMPORTANT FIX
-        if data.get("date"):
+        patient_date = data.get("date")
 
-            now = datetime.strptime(
-                data.get("date"),
+        if patient_date:
+
+            dt = datetime.strptime(
+                patient_date,
                 "%Y-%m-%d"
             )
 
         else:
 
-            now = datetime.utcnow()
+            dt = datetime.utcnow()
 
         patient = {
 
@@ -213,23 +232,20 @@ async def create_patient(data: dict):
                 "segmental"
             ),
 
-            # =========================
-            # DATE SYSTEM
-            # =========================
             "created_at":
-            datetime.utcnow(),
+            dt,
 
             "year":
-            now.year,
+            dt.year,
 
             "month":
-            now.strftime("%B"),
+            dt.strftime("%B"),
 
             "month_no":
-            now.month,
+            dt.month,
 
             "day":
-            now.day
+            dt.day
         }
 
         result = patients.insert_one(
@@ -268,16 +284,18 @@ async def update_patient(
 
     try:
 
-        if data.get("date"):
+        patient_date = data.get("date")
 
-            now = datetime.strptime(
-                data.get("date"),
+        if patient_date:
+
+            dt = datetime.strptime(
+                patient_date,
                 "%Y-%m-%d"
             )
 
         else:
 
-            now = datetime.utcnow()
+            dt = datetime.utcnow()
 
         patients.update_one(
 
@@ -409,18 +427,20 @@ async def update_patient(
                         "segmental"
                     ),
 
-                    # 🔥 UPDATE MONTH DATA TOO
+                    "created_at":
+                    dt,
+
                     "year":
-                    now.year,
+                    dt.year,
 
                     "month":
-                    now.strftime("%B"),
+                    dt.strftime("%B"),
 
                     "month_no":
-                    now.month,
+                    dt.month,
 
                     "day":
-                    now.day
+                    dt.day
                 }
             }
         )
