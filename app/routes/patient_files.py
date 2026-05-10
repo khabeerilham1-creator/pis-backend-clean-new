@@ -23,7 +23,9 @@ def get_patient_file(patient_id: str):
             "_id": ObjectId(patient_id)
         })
 
-    except:
+    except Exception as e:
+
+        print("PATIENT ERROR:", str(e))
 
         return {
             "patient": {},
@@ -43,6 +45,9 @@ def get_patient_file(patient_id: str):
             "timeline": []
         }
 
+    # =========================
+    # SERIALIZE PATIENT
+    # =========================
     patient["_id"] = str(patient["_id"])
 
     # =========================
@@ -54,13 +59,21 @@ def get_patient_file(patient_id: str):
 
             "$or": [
 
+                # OLD SYSTEM
+                {"patient": patient_id},
+
+                # NEW SYSTEM
                 {"patient_id": patient_id},
 
-                {"patient": patient_id}
+                # NAME MATCH
+                {"patient_name": patient.get("name")},
+
+                # MOBILE MATCH
+                {"mobile_number": patient.get("mobile_number")}
 
             ]
 
-        })
+        }).sort("_id", -1)
 
     )
 
@@ -77,13 +90,15 @@ def get_patient_file(patient_id: str):
 
             "$or": [
 
+                {"patient": patient_id},
+
                 {"patient_id": patient_id},
 
-                {"patient": patient_id}
+                {"patient_name": patient.get("name")}
 
             ]
 
-        })
+        }).sort("_id", -1)
 
     )
 
@@ -106,7 +121,7 @@ def get_patient_file(patient_id: str):
 
             ]
 
-        })
+        }).sort("_id", -1)
 
     )
 
