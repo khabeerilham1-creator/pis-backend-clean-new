@@ -1,124 +1,148 @@
 from fastapi import APIRouter
 from app.core.database import db
-from datetime import datetime
 from bson import ObjectId
 
 router = APIRouter()
 
-patient_files = db["patient_files"]
 patients = db["patients"]
 checkups = db["checkups"]
 visits = db["visits"]
-billing = db["billing"]
-payments = db["payments"]
+invoices = db["invoices"]
 timeline = db["timeline"]
-invoices = db["invoices"]   # ✅ ADDED
 
 
 # =========================
-# BUILD / UPDATE FILE
+# GET PATIENT FILE
 # =========================
-@router.get("/build/{patient_id}")
-def build_patient_file(patient_id: str):
-
-    year = str(datetime.utcnow().year)
+@router.get("/{patient_id}")
+def get_patient_file(patient_id: str):
 
     try:
-        patient = patients.find_one({"_id": ObjectId(patient_id)})
+
+        patient = patients.find_one({
+            "_id": ObjectId(patient_id)
+        })
+
     except:
-        patient = None
+
+        return {
+            "patient": {},
+            "checkups": [],
+            "visits": [],
+            "invoices": [],
+            "timeline": []
+        }
 
     if not patient:
-        return {"msg": "Patient not found"}
+
+        return {
+            "patient": {},
+            "checkups": [],
+            "visits": [],
+            "invoices": [],
+            "timeline": []
+        }
 
     patient["_id"] = str(patient["_id"])
 
-    query = {
-        "$or": [
-            {"patient_id": patient_id},
-            {"patient": patient_id}
-        ]
-    }
+    # =========================
+    # CHECKUPS
+    # =========================
+    checkup_list = list(
 
-    data = {
-        "patient_info": patient,
-        "checkups": list(checkups.find({"patient": patient_id})),
-        "visits": list(visits.find({"patient": patient_id})),
-        "billing": list(billing.find({"patient_name": patient.get("name")})),
-        "payments": list(payments.find({"patient_name": patient.get("name")})),
-        "timeline": list(timeline.find({"patient_id": patient_id})),
-        "invoices": list(invoices.find({"patient_id": patient_id}))   # ✅ ADDED
-    }
+        checkups.find({
 
-    patient_files.update_one(
-        {"patient_id": patient_id, "year": year},
-        {
-            "$set": {
-                "patient_id": patient_id,
-                "year": year,
-                "data": data,
-                "updated_at": datetime.utcnow()
-            }
-        },
-        upsert=True
+            "$or": [
+
+                {"patient_id": patient_id},
+
+                {"patient": patient_id}
+
+            ]
+
+        })
+
     )
 
-    return {"msg": "Patient file created/updated"}
+    for c in checkup_list:
 
+        c["_id"] = str(c["_id"])
 
-# =========================
-# GET SINGLE PATIENT FILE (FIXED FOR FRONTEND)
-# =========================
-@router.get("/{patient_id}")
-def get_patient_file_simple(patient_id: str):
+    # =========================
+    # VISITS
+    # =========================
+    visit_list = list(
 
-    year = str(datetime.utcnow().year)
+        visits.find({
 
-    try:
-        patient_obj = ObjectId(patient_id)
-    except:
-        patient_obj = None
+            "$or": [
 
-    file = patient_files.find_one({
-        "year": year,
-        "$or": [
-            {"patient_id": patient_id},
-            {"patient_id": patient_obj}
-        ]
-    })
+                {"patient_id": patient_id},
 
-    if not file:
-        return {"msg": "Not found"}
+                {"patient": patient_id}
 
-    data = file.get("data", {})
+            ]
 
-    # 🔥 NORMALIZED RESPONSE (FRONTEND FRIENDLY)
+        })
+
+    )
+
+    for v in visit_list:
+
+        v["_id"] = str(v["_id"])
+
+    # =========================
+    # INVOICES
+    # =========================
+    invoice_list = list(
+
+        invoices.find({
+
+            "$or": [
+
+                {"patient_id": patient_id},
+
+                {"patient_name": patient.get("name")}
+
+            ]
+
+        })
+
+    )
+
+    for i in invoice_list:
+
+        i["_id"] = str(i["_id"])
+
+    # =========================
+    # TIMELINE
+    # =========================
+    timeline_list = list(
+
+        timeline.find({
+
+            "patient_id": patient_id
+
+        }).sort("created_at", -1)
+
+    )
+
+    for t in timeline_list:
+
+        t["_id"] = str(t["_id"])
+
+    # =========================
+    # FINAL RESPONSE
+    # =========================
     return {
-        "patient": data.get("patient_info", {}),
-        "patient_id": patient_id,
-        "checkups": data.get("checkups", []),
-        "visits": data.get("visits", []),
-        "invoices": data.get("invoices", []),
-        "timeline": data.get("timeline", [])
+
+        "patient": patient,
+
+        "checkups": checkup_list,
+
+        "visits": visit_list,
+
+        "invoices": invoice_list,
+
+        "timeline": timeline_list
     }
-
-
-# =========================
-# SEARCH
-# =========================
-@router.get("/search/{query}")
-def search_files(query: str):
-
-    result = []
-
-    for f in patient_files.find():
-        info = f.get("data", {}).get("patient_info", {})
-
-        name = str(info.get("name", "")).lower()
-        phone = str(info.get("phone", ""))
-
-        if query.lower() in name or query in phone:
-            f["_id"] = str(f["_id"])
-            result.append(f)
-
-    return result
