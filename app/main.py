@@ -48,6 +48,9 @@ from app.routes.pending_cases import router as pending_cases_router
 # 📅 TO BE APPOINTED
 from app.routes.to_be_appointed import router as to_be_appointed_router
 
+# 🚫 TO BE EXCEPTED
+from app.routes.to_be_excepted import router as to_be_excepted_router
+
 
 # =========================
 # APP INIT
@@ -186,6 +189,13 @@ app.include_router(
     to_be_appointed_router,
     prefix="/to-be-appointed",
     tags=["To Be Appointed"]
+)
+
+# 🚫 TO BE EXCEPTED
+app.include_router(
+    to_be_excepted_router,
+    prefix="/to-be-excepted",
+    tags=["To Be Excepted"]
 )
 
 # REPORTS
