@@ -1,14 +1,44 @@
 from fastapi import APIRouter
 from app.core.database import db
-from datetime import datetime, timedelta
+from datetime import datetime
 
 router = APIRouter()
 
 patients = db["patients"]
 visits = db["visits"]
-
-# 🔥 CHANGE THIS TO YOUR REAL AFI COLLECTION
 afi = db["afi"]
+invoices = db["invoices"]
+
+
+# =========================================
+# DATE PARSER
+# =========================================
+def parse_date(value):
+
+    if not value:
+        return None
+
+    formats = [
+
+        "%Y-%m-%d",
+        "%d/%m/%Y",
+        "%m/%d/%Y",
+        "%Y/%m/%d"
+
+    ]
+
+    for fmt in formats:
+
+        try:
+            return datetime.strptime(
+                str(value),
+                fmt
+            )
+
+        except:
+            pass
+
+    return None
 
 
 # =========================================
@@ -19,210 +49,198 @@ def get_alerts():
 
     alerts = []
 
-    now = datetime.utcnow()
-
-    today = now.date()
+    today = datetime.utcnow().date()
 
     # =========================================
-    # BIRTHDAY ALERTS
+    # BIRTHDAYS
     # =========================================
     for p in patients.find():
 
-        birth = p.get("birth_date")
+        birth = parse_date(
+            p.get("birth_date")
+        )
 
         if not birth:
             continue
 
-        try:
+        if (
+            birth.day == today.day
+            and
+            birth.month == today.month
+        ):
 
-            if "/" in birth:
+            alerts.append({
 
-                bday = datetime.strptime(
-                    birth,
-                    "%d/%m/%Y"
-                )
+                "title":
+                "Birthday",
 
-            else:
+                "patient":
+                p.get("name"),
 
-                bday = datetime.strptime(
-                    birth,
-                    "%Y-%m-%d"
-                )
+                "priority":
+                "medium",
 
-            if (
-                bday.day == today.day
-                and
-                bday.month == today.month
-            ):
+                "date":
+                str(today),
 
-                alerts.append({
+                "message":
+                f"🎂 Today is {p.get('name')} birthday"
 
-                    "type": "Birthday",
-
-                    "priority": "medium",
-
-                    "patient": p.get("name"),
-
-                    "message":
-                    f"🎂 Today is {p.get('name')} birthday"
-
-                })
-
-        except:
-            pass
+            })
 
     # =========================================
-    # UPCOMING VISITS
+    # VISITS
     # =========================================
     for v in visits.find():
 
-        visit_date = (
+        dt = parse_date(
+
             v.get("next_visit")
             or
             v.get("appointment_date")
             or
             v.get("date")
+
         )
 
-        if not visit_date:
+        if not dt:
             continue
 
-        try:
+        diff = (
+            dt.date() - today
+        ).days
 
-            if "/" in visit_date:
+        if diff == 0:
 
-                dt = datetime.strptime(
-                    visit_date,
-                    "%d/%m/%Y"
-                )
+            alerts.append({
 
-            else:
+                "title":
+                "Today Appointment",
 
-                dt = datetime.strptime(
-                    visit_date,
-                    "%Y-%m-%d"
-                )
+                "patient":
+                v.get("patient_name"),
 
-            diff = (
-                dt.date() - today
-            ).days
+                "priority":
+                "high",
 
-            if diff == 0:
+                "date":
+                str(dt.date()),
 
-                alerts.append({
+                "message":
+                f"📅 {v.get('patient_name')} has appointment today"
 
-                    "type": "Appointment",
+            })
 
-                    "priority": "high",
+        elif diff == 1:
 
-                    "patient":
-                    v.get("patient_name"),
+            alerts.append({
 
-                    "message":
-                    f"📅 Appointment today for {v.get('patient_name')}"
+                "title":
+                "Tomorrow Appointment",
 
-                })
+                "patient":
+                v.get("patient_name"),
 
-            elif diff == 1:
+                "priority":
+                "medium",
 
-                alerts.append({
+                "date":
+                str(dt.date()),
 
-                    "type": "Appointment",
+                "message":
+                f"⏰ {v.get('patient_name')} has appointment tomorrow"
 
-                    "priority": "medium",
-
-                    "patient":
-                    v.get("patient_name"),
-
-                    "message":
-                    f"⏰ Tomorrow appointment for {v.get('patient_name')}"
-
-                })
-
-        except:
-            pass
+            })
 
     # =========================================
-    # AFI / TREATMENT PLAN
+    # AFI / TREATMENT PLANS
     # =========================================
     for a in afi.find():
 
-        afi_date = (
+        dt = parse_date(
             a.get("date")
-            or
-            a.get("appointment_date")
-            or
-            a.get("next_visit")
         )
 
-        if not afi_date:
+        if not dt:
             continue
 
-        try:
+        diff = (
+            dt.date() - today
+        ).days
 
-            if "/" in afi_date:
+        if diff >= 0 and diff <= 3:
 
-                dt = datetime.strptime(
-                    afi_date,
-                    "%d/%m/%Y"
-                )
+            alerts.append({
 
-            else:
+                "title":
+                "Treatment Plan",
 
-                dt = datetime.strptime(
-                    afi_date,
-                    "%Y-%m-%d"
-                )
+                "patient":
+                a.get("patient_name"),
 
-            diff = (
-                dt.date() - today
-            ).days
+                "priority":
+                "high",
 
-            if diff <= 2:
+                "date":
+                str(dt.date()),
 
-                alerts.append({
+                "message":
+                f"🦷 {a.get('patient_name')} treatment scheduled"
 
-                    "type": "Treatment Plan",
-
-                    "priority": "high",
-
-                    "patient":
-                    a.get("patient_name"),
-
-                    "message":
-                    f"🦷 Planned treatment for {a.get('patient_name')}"
-
-                })
-
-        except:
-            pass
+            })
 
     # =========================================
-    # UNPAID INVOICES
+    # PENDING PAYMENTS
     # =========================================
-    invoices = db["invoices"]
-
     for i in invoices.find():
 
         balance = float(
             i.get("balance", 0)
         )
 
-        if balance > 0:
+        # ONLY IF REALLY PENDING
+        if balance <= 0:
+            continue
 
-            alerts.append({
+        alerts.append({
 
-                "type": "Payment",
+            "title":
+            "Pending Payment",
 
-                "priority": "high",
+            "patient":
+            i.get("patient_name"),
 
-                "patient":
-                i.get("patient_name"),
+            "priority":
+            "high",
 
-                "message":
-                f"💰 Pending payment Rs {balance} for {i.get('patient_name')}"
+            "date":
+            str(today),
 
-            })
+            "message":
+            f"💰 {i.get('patient_name')} pending balance Rs {balance}"
+
+        })
+
+    # =========================================
+    # REMOVE DUPLICATES
+    # =========================================
+    unique = []
+
+    seen = set()
+
+    for a in alerts:
+
+        key = (
+            a["title"],
+            a["patient"],
+            a["message"]
+        )
+
+        if key not in seen:
+
+            seen.add(key)
+
+            unique.append(a)
 
     # =========================================
     # SORT
@@ -234,12 +252,14 @@ def get_alerts():
         "low": 3
     }
 
-    alerts.sort(
+    unique.sort(
+
         key=lambda x:
         priority_order.get(
             x["priority"],
             99
         )
+
     )
 
-    return alerts
+    return unique
