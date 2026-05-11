@@ -57,15 +57,23 @@ def get_alerts():
     # =========================================
     for v in visits.find():
 
+        print("VISIT:", v)
+
         patient_name = (
 
             v.get("patient_name")
 
             or v.get("Patient")
 
+            or v.get("patient")
+
             or v.get("name")
 
-            or v.get("patient")
+            or v.get("full_name")
+
+            or v.get("patientName")
+
+            or v.get("patient_name ")
 
             or "Unknown Patient"
         )
@@ -75,6 +83,8 @@ def get_alerts():
             v.get("next_visit")
 
             or v.get("appointment_date")
+
+            or v.get("visit_date")
 
             or v.get("date")
         )
@@ -96,7 +106,7 @@ def get_alerts():
             alerts.append({
 
                 "title":
-                "Today Appointment",
+                "Visit Today",
 
                 "patient":
                 patient_name,
@@ -108,7 +118,7 @@ def get_alerts():
                 str(dt.date()),
 
                 "message":
-                f"📅 {patient_name} has appointment today"
+                f"📅 {patient_name} has visit today"
 
             })
 
@@ -118,7 +128,7 @@ def get_alerts():
             alerts.append({
 
                 "title":
-                "Tomorrow Appointment",
+                "Visit Tomorrow",
 
                 "patient":
                 patient_name,
@@ -130,7 +140,7 @@ def get_alerts():
                 str(dt.date()),
 
                 "message":
-                f"⏰ {patient_name} has appointment tomorrow"
+                f"⏰ {patient_name} has visit tomorrow"
 
             })
 
@@ -140,7 +150,7 @@ def get_alerts():
             alerts.append({
 
                 "title":
-                "Upcoming Appointment",
+                "Upcoming Visit",
 
                 "patient":
                 patient_name,
@@ -152,7 +162,7 @@ def get_alerts():
                 str(dt.date()),
 
                 "message":
-                f"🗓️ {patient_name} appointment on {dt.date()}"
+                f"🗓️ {patient_name} upcoming visit on {dt.date()}"
 
             })
 
@@ -161,15 +171,21 @@ def get_alerts():
     # =========================================
     for a in afi.find():
 
+        print("AFI:", a)
+
         patient_name = (
 
             a.get("patient_name")
 
             or a.get("Patient")
 
+            or a.get("patient")
+
             or a.get("name")
 
-            or a.get("patient")
+            or a.get("full_name")
+
+            or a.get("patientName")
 
             or "Unknown Patient"
         )
@@ -375,21 +391,15 @@ def get_alerts():
             final_alerts.append(a)
 
     # =========================================
-    # SORT
+    # SORT A-Z
     # =========================================
-    priority_order = {
+    final_alerts = sorted(
 
-        "high": 1,
-        "medium": 2,
-        "low": 3
-    }
+        final_alerts,
 
-    final_alerts.sort(
-
-        key=lambda x:
-        priority_order.get(
-            x["priority"],
-            99
+        key=lambda x: (
+            x["patient"].lower(),
+            x["date"]
         )
 
     )
