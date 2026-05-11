@@ -30,6 +30,7 @@ def parse_date(value):
     for fmt in formats:
 
         try:
+
             return datetime.strptime(
                 str(value),
                 fmt
@@ -59,6 +60,8 @@ def get_alerts():
         patient_name = (
 
             v.get("patient_name")
+
+            or v.get("Patient")
 
             or v.get("name")
 
@@ -93,7 +96,7 @@ def get_alerts():
             alerts.append({
 
                 "title":
-                "Visit Today",
+                "Today Appointment",
 
                 "patient":
                 patient_name,
@@ -105,7 +108,7 @@ def get_alerts():
                 str(dt.date()),
 
                 "message":
-                f"📅 {patient_name} has visit today"
+                f"📅 {patient_name} has appointment today"
 
             })
 
@@ -115,7 +118,7 @@ def get_alerts():
             alerts.append({
 
                 "title":
-                "Visit Tomorrow",
+                "Tomorrow Appointment",
 
                 "patient":
                 patient_name,
@@ -127,17 +130,17 @@ def get_alerts():
                 str(dt.date()),
 
                 "message":
-                f"⏰ {patient_name} has visit tomorrow"
+                f"⏰ {patient_name} has appointment tomorrow"
 
             })
 
-        # NEXT 7 DAYS
+        # UPCOMING
         elif diff > 1 and diff <= 7:
 
             alerts.append({
 
                 "title":
-                "Upcoming Visit",
+                "Upcoming Appointment",
 
                 "patient":
                 patient_name,
@@ -149,7 +152,7 @@ def get_alerts():
                 str(dt.date()),
 
                 "message":
-                f"🗓️ {patient_name} upcoming visit on {dt.date()}"
+                f"🗓️ {patient_name} appointment on {dt.date()}"
 
             })
 
@@ -161,6 +164,8 @@ def get_alerts():
         patient_name = (
 
             a.get("patient_name")
+
+            or a.get("Patient")
 
             or a.get("name")
 
@@ -233,7 +238,7 @@ def get_alerts():
 
             })
 
-        # NEXT 7 DAYS
+        # UPCOMING
         elif diff > 1 and diff <= 7:
 
             alerts.append({
@@ -291,6 +296,62 @@ def get_alerts():
                 f"🎂 Today is {p.get('name')} birthday"
 
             })
+
+    # =========================================
+    # PENDING PAYMENTS
+    # =========================================
+    for i in invoices.find():
+
+        amount = float(
+            i.get("amount", 0)
+        )
+
+        discount = float(
+            i.get("discount", 0)
+        )
+
+        paid = float(
+            i.get("paid", 0)
+        )
+
+        final_amount = amount - discount
+
+        balance = final_amount - paid
+
+        invoices.update_one(
+
+            {
+                "_id": i["_id"]
+            },
+
+            {
+                "$set": {
+                    "balance": balance
+                }
+            }
+        )
+
+        if balance <= 0:
+            continue
+
+        alerts.append({
+
+            "title":
+            "Pending Payment",
+
+            "patient":
+            i.get("patient_name"),
+
+            "priority":
+            "high",
+
+            "date":
+            str(today),
+
+            "message":
+            f"💰 {i.get('patient_name')} pending balance Rs {balance}"
+
+        })
 
     # =========================================
     # REMOVE DUPLICATES
