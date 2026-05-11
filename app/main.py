@@ -51,6 +51,9 @@ from app.routes.to_be_appointed import router as to_be_appointed_router
 # 🚫 TO BE EXCEPTED
 from app.routes.to_be_excepted import router as to_be_excepted_router
 
+# 🚨 ALERT SYSTEM
+from app.routes.ars import router as ars_router
+
 
 # =========================
 # APP INIT
@@ -282,6 +285,13 @@ app.include_router(
     permissions_router,
     prefix="/permissions",
     tags=["Permissions"]
+)
+
+# 🚨 ALERT SYSTEM
+app.include_router(
+    ars_router,
+    prefix="/ars",
+    tags=["ARS"]
 )
 
 
