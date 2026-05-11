@@ -52,6 +52,210 @@ def get_alerts():
     today = datetime.utcnow().date()
 
     # =========================================
+    # VISITS ALERTS
+    # =========================================
+    for v in visits.find():
+
+        patient_name = (
+
+            v.get("patient_name")
+
+            or v.get("name")
+
+            or v.get("patient")
+
+            or "Unknown Patient"
+        )
+
+        visit_date = (
+
+            v.get("next_visit")
+
+            or v.get("appointment_date")
+
+            or v.get("date")
+        )
+
+        dt = parse_date(
+            visit_date
+        )
+
+        if not dt:
+            continue
+
+        diff = (
+            dt.date() - today
+        ).days
+
+        # TODAY
+        if diff == 0:
+
+            alerts.append({
+
+                "title":
+                "Visit Today",
+
+                "patient":
+                patient_name,
+
+                "priority":
+                "high",
+
+                "date":
+                str(dt.date()),
+
+                "message":
+                f"📅 {patient_name} has visit today"
+
+            })
+
+        # TOMORROW
+        elif diff == 1:
+
+            alerts.append({
+
+                "title":
+                "Visit Tomorrow",
+
+                "patient":
+                patient_name,
+
+                "priority":
+                "medium",
+
+                "date":
+                str(dt.date()),
+
+                "message":
+                f"⏰ {patient_name} has visit tomorrow"
+
+            })
+
+        # NEXT 7 DAYS
+        elif diff > 1 and diff <= 7:
+
+            alerts.append({
+
+                "title":
+                "Upcoming Visit",
+
+                "patient":
+                patient_name,
+
+                "priority":
+                "low",
+
+                "date":
+                str(dt.date()),
+
+                "message":
+                f"🗓️ {patient_name} upcoming visit on {dt.date()}"
+
+            })
+
+    # =========================================
+    # AFI ALERTS
+    # =========================================
+    for a in afi.find():
+
+        patient_name = (
+
+            a.get("patient_name")
+
+            or a.get("name")
+
+            or a.get("patient")
+
+            or "Unknown Patient"
+        )
+
+        afi_date = (
+
+            a.get("date")
+
+            or a.get("appointment_date")
+
+            or a.get("next_visit")
+        )
+
+        dt = parse_date(
+            afi_date
+        )
+
+        if not dt:
+            continue
+
+        diff = (
+            dt.date() - today
+        ).days
+
+        # TODAY
+        if diff == 0:
+
+            alerts.append({
+
+                "title":
+                "Treatment Today",
+
+                "patient":
+                patient_name,
+
+                "priority":
+                "high",
+
+                "date":
+                str(dt.date()),
+
+                "message":
+                f"🦷 {patient_name} treatment today"
+
+            })
+
+        # TOMORROW
+        elif diff == 1:
+
+            alerts.append({
+
+                "title":
+                "Treatment Tomorrow",
+
+                "patient":
+                patient_name,
+
+                "priority":
+                "medium",
+
+                "date":
+                str(dt.date()),
+
+                "message":
+                f"⏰ {patient_name} treatment tomorrow"
+
+            })
+
+        # NEXT 7 DAYS
+        elif diff > 1 and diff <= 7:
+
+            alerts.append({
+
+                "title":
+                "Upcoming Treatment",
+
+                "patient":
+                patient_name,
+
+                "priority":
+                "low",
+
+                "date":
+                str(dt.date()),
+
+                "message":
+                f"🗓️ {patient_name} treatment on {dt.date()}"
+
+            })
+
+    # =========================================
     # BIRTHDAYS
     # =========================================
     for p in patients.find():
@@ -89,142 +293,9 @@ def get_alerts():
             })
 
     # =========================================
-    # VISITS
-    # =========================================
-    for v in visits.find():
-
-        dt = parse_date(
-
-            v.get("next_visit")
-            or
-            v.get("appointment_date")
-            or
-            v.get("date")
-
-        )
-
-        if not dt:
-            continue
-
-        diff = (
-            dt.date() - today
-        ).days
-
-        if diff == 0:
-
-            alerts.append({
-
-                "title":
-                "Today Appointment",
-
-                "patient":
-                v.get("patient_name"),
-
-                "priority":
-                "high",
-
-                "date":
-                str(dt.date()),
-
-                "message":
-                f"📅 {v.get('patient_name')} has appointment today"
-
-            })
-
-        elif diff == 1:
-
-            alerts.append({
-
-                "title":
-                "Tomorrow Appointment",
-
-                "patient":
-                v.get("patient_name"),
-
-                "priority":
-                "medium",
-
-                "date":
-                str(dt.date()),
-
-                "message":
-                f"⏰ {v.get('patient_name')} has appointment tomorrow"
-
-            })
-
-    # =========================================
-    # AFI / TREATMENT PLANS
-    # =========================================
-    for a in afi.find():
-
-        dt = parse_date(
-            a.get("date")
-        )
-
-        if not dt:
-            continue
-
-        diff = (
-            dt.date() - today
-        ).days
-
-        if diff >= 0 and diff <= 3:
-
-            alerts.append({
-
-                "title":
-                "Treatment Plan",
-
-                "patient":
-                a.get("patient_name"),
-
-                "priority":
-                "high",
-
-                "date":
-                str(dt.date()),
-
-                "message":
-                f"🦷 {a.get('patient_name')} treatment scheduled"
-
-            })
-
-    # =========================================
-    # PENDING PAYMENTS
-    # =========================================
-    for i in invoices.find():
-
-        balance = float(
-            i.get("balance", 0)
-        )
-
-        # ONLY IF REALLY PENDING
-        if balance <= 0:
-            continue
-
-        alerts.append({
-
-            "title":
-            "Pending Payment",
-
-            "patient":
-            i.get("patient_name"),
-
-            "priority":
-            "high",
-
-            "date":
-            str(today),
-
-            "message":
-            f"💰 {i.get('patient_name')} pending balance Rs {balance}"
-
-        })
-
-    # =========================================
     # REMOVE DUPLICATES
     # =========================================
-    unique = []
+    final_alerts = []
 
     seen = set()
 
@@ -233,14 +304,14 @@ def get_alerts():
         key = (
             a["title"],
             a["patient"],
-            a["message"]
+            a["date"]
         )
 
         if key not in seen:
 
             seen.add(key)
 
-            unique.append(a)
+            final_alerts.append(a)
 
     # =========================================
     # SORT
@@ -252,7 +323,7 @@ def get_alerts():
         "low": 3
     }
 
-    unique.sort(
+    final_alerts.sort(
 
         key=lambda x:
         priority_order.get(
@@ -262,4 +333,4 @@ def get_alerts():
 
     )
 
-    return unique
+    return final_alerts
