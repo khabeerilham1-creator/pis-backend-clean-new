@@ -17,6 +17,8 @@ def create_bill(data: dict):
 
     amount = float(data.get("amount", 0))
     lab_charge = float(data.get("lab_charge", 0))
+    discount = float(data.get("discount", 0))
+    total = float(data.get("total", amount))
 
     doctor_share = amount * 0.25
     owner_share = amount - doctor_share - lab_charge
@@ -31,7 +33,13 @@ def create_bill(data: dict):
 
         "rows": data.get("rows", []),
 
+        "total": total,
+
+        "discount": discount,
+
         "amount": amount,
+
+        "final": amount,
 
         "lab_charge": lab_charge,
 
@@ -56,11 +64,15 @@ def create_bill(data: dict):
 
         "payments": [],
 
+        "total": total,
+
+        "discount": discount,
+
         "amount": amount,
 
-        "discount": 0,
-
         "final": amount,
+
+        "lab_charge": lab_charge,
 
         "paid": 0,
 
@@ -83,7 +95,10 @@ def create_bill(data: dict):
 def get_all_bills():
 
     data = list(
-        billing_collection.find()
+        billing_collection.find().sort(
+            "created_at",
+            -1
+        )
     )
 
     result = []
@@ -134,10 +149,9 @@ def update_bill(id: str, data: dict):
         )
 
     amount = float(data.get("amount", 0))
-
-    lab_charge = float(
-        data.get("lab_charge", 0)
-    )
+    lab_charge = float(data.get("lab_charge", 0))
+    discount = float(data.get("discount", 0))
+    total = float(data.get("total", amount))
 
     doctor_share = amount * 0.25
 
@@ -163,7 +177,17 @@ def update_bill(id: str, data: dict):
                 "rows":
                 data.get("rows", []),
 
-                "amount": amount,
+                "total":
+                total,
+
+                "discount":
+                discount,
+
+                "amount":
+                amount,
+
+                "final":
+                amount,
 
                 "lab_charge":
                 lab_charge,
@@ -176,6 +200,40 @@ def update_bill(id: str, data: dict):
 
                 "updated_at":
                 datetime.utcnow()
+            }
+        }
+    )
+
+    invoices.update_one(
+
+        {
+            "patient_name":
+            data.get("patient_name")
+        },
+
+        {
+            "$set": {
+
+                "rows":
+                data.get("rows", []),
+
+                "total":
+                total,
+
+                "discount":
+                discount,
+
+                "amount":
+                amount,
+
+                "final":
+                amount,
+
+                "lab_charge":
+                lab_charge,
+
+                "balance":
+                amount
             }
         }
     )

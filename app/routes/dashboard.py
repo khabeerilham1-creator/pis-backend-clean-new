@@ -80,10 +80,15 @@ def dashboard(month: int = None, year: int = None):
 
             monthly_revenue += amount
 
-            # SPLITS
+            # =========================
+            # LAB FIX
+            # =========================
             lab = float(
                 i.get("lab_charge", 0)
             )
+
+            if lab > amount:
+                lab = 0
 
             doc = amount * 0.25
 
@@ -97,7 +102,9 @@ def dashboard(month: int = None, year: int = None):
             lab_total += lab
             owner_profit += owner
 
+        # =========================
         # TODAY REVENUE
+        # =========================
         if created.date() == today:
 
             today_revenue += amount
@@ -158,7 +165,9 @@ def dashboard(month: int = None, year: int = None):
         "checkups":
         total_checkups,
 
-        # 🔥 MONTHLY REVENUE
+        # =========================
+        # MONTHLY REVENUE
+        # =========================
         "revenue":
         monthly_revenue,
 
