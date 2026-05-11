@@ -9,6 +9,7 @@ visits = db["visits"]
 afi = db["afi"]
 invoices = db["invoices"]
 
+
 # =========================
 # GET ALERTS
 # =========================
@@ -91,14 +92,20 @@ def get_alerts():
             pass
 
     # =========================
-    # VISIT ALERTS
+    # VISITS ALERTS
     # =========================
     for v in visits.find():
 
+        print("VISIT DATA:", v)
+
         visit_date = (
+
             v.get("date")
+
             or v.get("visit_date")
+
             or v.get("appointment_date")
+
         )
 
         if not visit_date:
@@ -107,11 +114,10 @@ def get_alerts():
         try:
 
             visit_day = datetime.strptime(
-                visit_date,
+                str(visit_date),
                 "%Y-%m-%d"
             ).date()
 
-            # 🔥 AUTO DETECT PATIENT FIELD
             patient_name = (
 
                 v.get("patient_name")
@@ -167,17 +173,25 @@ def get_alerts():
                     str(visit_day)
                 })
 
-        except:
-            pass
+        except Exception as e:
+
+            print("VISIT ALERT ERROR:", e)
 
     # =========================
-    # AFI / TREATMENT ALERTS
+    # AFI ALERTS
     # =========================
     for a in afi.find():
 
+        print("AFI DATA:", a)
+
         afi_date = (
+
             a.get("date")
+
             or a.get("appointment_date")
+
+            or a.get("visit_date")
+
         )
 
         if not afi_date:
@@ -186,7 +200,7 @@ def get_alerts():
         try:
 
             afi_day = datetime.strptime(
-                afi_date,
+                str(afi_date),
                 "%Y-%m-%d"
             ).date()
 
@@ -198,13 +212,25 @@ def get_alerts():
 
                 or a.get("name")
 
+                or a.get("patientName")
+
+                or a.get("full_name")
+
+                or a.get("patient_id")
+
                 or "Unknown Patient"
             )
 
             treatment = (
+
                 a.get("treatment")
+
                 or a.get("procedure")
+
+                or a.get("plan")
+
                 or "Treatment"
+
             )
 
             # TODAY
@@ -213,10 +239,10 @@ def get_alerts():
                 alerts.append({
 
                     "title":
-                    "Treatment Today",
+                    "Today Appointment",
 
                     "message":
-                    f"🦷 {patient_name} treatment today ({treatment})",
+                    f"📅 {patient_name} has appointment today",
 
                     "priority":
                     "high",
@@ -227,50 +253,48 @@ def get_alerts():
 
             # UPCOMING
             elif (
+
                 today <
                 afi_day <=
                 next_7_days
+
             ):
 
                 alerts.append({
 
                     "title":
-                    "Upcoming Treatment",
+                    "Upcoming Appointment",
 
                     "message":
-                    f"🦷 {patient_name} treatment on {afi_day}",
+                    f"🗓️ {patient_name} appointment on {afi_day}",
 
                     "priority":
-                    "medium",
+                    "low",
 
                     "date":
                     str(afi_day)
                 })
 
-        except:
-            pass
+        except Exception as e:
+
+            print("AFI ALERT ERROR:", e)
 
     # =========================
     # PAYMENT ALERTS
     # =========================
     for i in invoices.find():
 
-        balance = float(
-            i.get("balance", 0)
+        amount = float(
+            i.get("amount", 0)
         )
 
         paid = float(
             i.get("paid", 0)
         )
 
-        amount = float(
-            i.get("amount", 0)
-        )
+        balance = amount - paid
 
-        # 🔥 FIX FALSE BALANCES
-        real_balance = amount - paid
-
-        if real_balance > 0:
+        if balance > 0:
 
             patient_name = (
                 i.get("patient_name")
@@ -283,7 +307,7 @@ def get_alerts():
                 "Pending Payment",
 
                 "message":
-                f"💰 Pending payment Rs {real_balance} for {patient_name}",
+                f"💰 Pending payment Rs {balance} for {patient_name}",
 
                 "priority":
                 "high",
@@ -293,7 +317,7 @@ def get_alerts():
             })
 
     # =========================
-    # SORT A-Z
+    # SORT
     # =========================
     alerts = sorted(
         alerts,
