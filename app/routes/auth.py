@@ -16,7 +16,10 @@ ALGORITHM = "HS256"
 # HASH FUNCTION
 # =========================
 def hash_password(password: str):
-    return hashlib.sha256(password.encode()).hexdigest()
+
+    return hashlib.sha256(
+        password.encode()
+    ).hexdigest()
 
 
 # =========================
@@ -27,11 +30,26 @@ def register(data: dict):
 
     try:
 
-        print("🔥 REGISTER HIT:", data)
+        print(
+            "🔥 REGISTER HIT:",
+            data
+        )
 
-        username = data.get("username")
-        password = data.get("password")
-        role = data.get("role", "staff")
+        username = (
+            data.get("username", "")
+            .strip()
+            .lower()
+        )
+
+        password = (
+            data.get("password", "")
+            .strip()
+        )
+
+        role = data.get(
+            "role",
+            "staff"
+        )
 
         permissions = data.get(
             "permissions",
@@ -41,28 +59,41 @@ def register(data: dict):
         if not username or not password:
 
             raise HTTPException(
+
                 status_code=400,
+
                 detail="Missing fields"
             )
 
         existing = users.find_one({
-            "username": username
+
+            "username": {
+
+                "$regex":
+                f"^{username}$",
+
+                "$options": "i"
+            }
         })
 
         if existing:
 
             return {
-                "msg": "User already exists"
+
+                "msg":
+                "User already exists"
             }
 
         users.insert_one({
 
-            "username": username,
+            "username":
+            username,
 
             "password":
             hash_password(password),
 
-            "role": role,
+            "role":
+            role,
 
             "permissions":
             permissions
@@ -71,15 +102,22 @@ def register(data: dict):
         print("✅ USER CREATED")
 
         return {
-            "msg": "User created ✅"
+
+            "msg":
+            "User created ✅"
         }
 
     except Exception as e:
 
-        print("🔥 REGISTER ERROR:", e)
+        print(
+            "🔥 REGISTER ERROR:",
+            e
+        )
 
         raise HTTPException(
+
             status_code=500,
+
             detail=str(e)
         )
 
@@ -96,50 +134,90 @@ def login(data: dict):
 
         print("📥 DATA:", data)
 
-        username = data.get("username")
-        password = data.get("password")
+        username = (
+            data.get("username", "")
+            .strip()
+            .lower()
+        )
 
-        print("👤 USERNAME:", username)
+        password = (
+            data.get("password", "")
+            .strip()
+        )
+
+        print(
+            "👤 USERNAME:",
+            username
+        )
 
         if not username or not password:
 
             raise HTTPException(
+
                 status_code=400,
+
                 detail="Missing credentials"
             )
 
+        # CASE INSENSITIVE SEARCH
         user = users.find_one({
-            "username": username
+
+            "username": {
+
+                "$regex":
+                f"^{username}$",
+
+                "$options": "i"
+            }
         })
 
-        print("🧾 USER FROM DB:", user)
+        print(
+            "🧾 USER FROM DB:",
+            user
+        )
 
         if not user:
 
             raise HTTPException(
+
                 status_code=400,
+
                 detail="User not found"
             )
 
-        hashed_input = hash_password(password)
+        hashed_input = hash_password(
+            password
+        )
 
-        print("🔐 INPUT HASH:", hashed_input)
+        print(
+            "🔐 INPUT HASH:",
+            hashed_input
+        )
 
-        print("🔐 DB HASH:", user.get("password"))
+        print(
+            "🔐 DB HASH:",
+            user.get("password")
+        )
 
-        db_password = user.get("password")
+        db_password = user.get(
+            "password"
+        )
 
         if not db_password:
 
             raise HTTPException(
+
                 status_code=500,
+
                 detail="User password missing"
             )
 
         if hashed_input != db_password:
 
             raise HTTPException(
+
                 status_code=400,
+
                 detail="Wrong password"
             )
 
@@ -152,22 +230,33 @@ def login(data: dict):
             user["username"],
 
             "role":
-            user.get("role", "staff"),
+            user.get(
+                "role",
+                "staff"
+            ),
 
             "exp":
             datetime.utcnow()
             + timedelta(days=1)
         }
 
-        print("🧪 TOKEN PAYLOAD:", payload)
+        print(
+            "🧪 TOKEN PAYLOAD:",
+            payload
+        )
 
         token = jwt.encode(
+
             payload,
+
             SECRET_KEY,
+
             algorithm=ALGORITHM
         )
 
-        print("✅ LOGIN SUCCESS")
+        print(
+            "✅ LOGIN SUCCESS"
+        )
 
         return {
 
@@ -175,13 +264,21 @@ def login(data: dict):
             token,
 
             "role":
-            user.get("role", "staff"),
+            user.get(
+                "role",
+                "staff"
+            ),
 
             "username":
-            user.get("username"),
+            user.get(
+                "username"
+            ),
 
             "permissions":
-            user.get("permissions", {})
+            user.get(
+                "permissions",
+                {}
+            )
         }
 
     except HTTPException:
@@ -190,10 +287,15 @@ def login(data: dict):
 
     except Exception as e:
 
-        print("🔥 LOGIN ERROR FULL:", e)
+        print(
+            "🔥 LOGIN ERROR FULL:",
+            e
+        )
 
         raise HTTPException(
+
             status_code=500,
+
             detail=str(e)
         )
 
@@ -207,7 +309,14 @@ def delete_user(username: str):
     try:
 
         users.delete_one({
-            "username": username
+
+            "username": {
+
+                "$regex":
+                f"^{username}$",
+
+                "$options": "i"
+            }
         })
 
         print(
@@ -215,15 +324,22 @@ def delete_user(username: str):
         )
 
         return {
-            "msg": "User deleted"
+
+            "msg":
+            "User deleted"
         }
 
     except Exception as e:
 
-        print("🔥 DELETE ERROR:", e)
+        print(
+            "🔥 DELETE ERROR:",
+            e
+        )
 
         raise HTTPException(
+
             status_code=500,
+
             detail=str(e)
         )
 
@@ -232,7 +348,10 @@ def delete_user(username: str):
 # UPDATE USER
 # =========================
 @router.put("/update-user/{username}")
-def update_user(username: str, data: dict):
+def update_user(
+    username: str,
+    data: dict
+):
 
     try:
 
@@ -252,26 +371,48 @@ def update_user(username: str, data: dict):
                 data.get("role")
             )
 
+        if data.get("permissions"):
+
+            update_data["permissions"] = (
+                data.get("permissions")
+            )
+
         users.update_one(
 
             {
-                "username": username
+
+                "username": {
+
+                    "$regex":
+                    f"^{username}$",
+
+                    "$options": "i"
+                }
             },
 
             {
-                "$set": update_data
+
+                "$set":
+                update_data
             }
         )
 
         return {
-            "msg": "User updated ✅"
+
+            "msg":
+            "User updated ✅"
         }
 
     except Exception as e:
 
-        print("🔥 UPDATE ERROR:", e)
+        print(
+            "🔥 UPDATE ERROR:",
+            e
+        )
 
         raise HTTPException(
+
             status_code=500,
+
             detail=str(e)
         )
