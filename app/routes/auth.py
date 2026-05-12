@@ -186,7 +186,7 @@ def login(data: dict):
             )
 
         hashed_input = hash_password(
-            password
+            password.strip()
         )
 
         print(
@@ -199,20 +199,15 @@ def login(data: dict):
             user.get("password")
         )
 
-        db_password = user.get(
-            "password"
-        )
+        db_password = str(
+            user.get("password", "")
+        ).strip()
 
-        if not db_password:
-
-            raise HTTPException(
-
-                status_code=500,
-
-                detail="User password missing"
-            )
-
-        if hashed_input != db_password:
+        # SUPPORT OLD + NEW USERS
+        if (
+            hashed_input != db_password
+            and password.strip() != db_password
+        ):
 
             raise HTTPException(
 
