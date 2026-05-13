@@ -50,6 +50,10 @@ def get_patient_file(patient_id: str):
     # =========================
     patient["_id"] = str(patient["_id"])
 
+    # 🔥 FIX CATEGORY
+    if patient.get("category") == "Category 1":
+        patient["category"] = "Elite Category"
+
     # =========================
     # CHECKUPS
     # =========================
@@ -59,16 +63,9 @@ def get_patient_file(patient_id: str):
 
             "$or": [
 
-                # OLD SYSTEM
                 {"patient": patient_id},
-
-                # NEW SYSTEM
                 {"patient_id": patient_id},
-
-                # NAME MATCH
                 {"patient_name": patient.get("name")},
-
-                # MOBILE MATCH
                 {"mobile_number": patient.get("mobile_number")}
 
             ]
@@ -81,6 +78,26 @@ def get_patient_file(patient_id: str):
 
         c["_id"] = str(c["_id"])
 
+        # 🔥 FIX DUPLICATE TASKS
+        unique_tasks = []
+        seen = set()
+
+        for t in c.get("tasks", []):
+
+            key = (
+                str(t.get("tooth")),
+                str(t.get("condition")),
+                str(t.get("treatment"))
+            )
+
+            if key not in seen:
+
+                seen.add(key)
+
+                unique_tasks.append(t)
+
+        c["tasks"] = unique_tasks
+
     # =========================
     # VISITS
     # =========================
@@ -91,9 +108,7 @@ def get_patient_file(patient_id: str):
             "$or": [
 
                 {"patient": patient_id},
-
                 {"patient_id": patient_id},
-
                 {"patient_name": patient.get("name")}
 
             ]
@@ -116,7 +131,6 @@ def get_patient_file(patient_id: str):
             "$or": [
 
                 {"patient_id": patient_id},
-
                 {"patient_name": patient.get("name")}
 
             ]
@@ -125,9 +139,34 @@ def get_patient_file(patient_id: str):
 
     )
 
+    total_amount = 0
+    total_paid = 0
+
     for i in invoice_list:
 
         i["_id"] = str(i["_id"])
+
+        amount = float(i.get("amount", 0))
+        paid = float(i.get("paid", 0))
+
+        i["balance"] = amount - paid
+
+        total_amount += amount
+        total_paid += paid
+
+        # 🔥 FIX PROCEDURES
+        procedures = []
+
+        for r in i.get("rows", []):
+
+            treatment = r.get("treatment")
+
+            if treatment and treatment not in procedures:
+                procedures.append(treatment)
+
+        i["procedures"] = ", ".join(procedures)
+
+    total_balance = total_amount - total_paid
 
     # =========================
     # TIMELINE
@@ -159,5 +198,17 @@ def get_patient_file(patient_id: str):
 
         "invoices": invoice_list,
 
-        "timeline": timeline_list
+        "timeline": timeline_list,
+
+        # 🔥 SUMMARY
+        "summary": {
+
+            "total_amount": total_amount,
+
+            "total_paid": total_paid,
+
+            "total_balance": total_balance
+
+        }
+
     }

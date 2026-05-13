@@ -5,6 +5,7 @@ from fastapi.staticfiles import StaticFiles
 # =========================
 # IMPORT ROUTES
 # =========================
+
 from app.routes.auth import router as auth_router
 from app.routes.patients import router as patients_router
 from app.routes.checkups import router as checkups_router
@@ -22,7 +23,6 @@ from app.routes.ai import router as ai_router
 from app.routes.upload import router as upload_router
 from app.routes.prescription import router as prescription_router
 
-# NEW MODULES
 from app.routes.hai import router as hai_router
 from app.routes.debtors import router as debtors_router
 from app.routes.creditors import router as creditors_router
@@ -30,66 +30,53 @@ from app.routes.bills import router as bills_router
 from app.routes.acc import router as acc_router
 from app.routes.acc_ws import router as acc_ws_router
 
-# 🔥 PERMISSIONS
 from app.routes.permissions import router as permissions_router
-
-# 🔥 ACCOUNT STATUS
 from app.routes.account_status import router as account_status_router
-
-# 🌍 CITY PATIENTS
 from app.routes.city_patients import router as city_patients_router
-
-# ✅ COMPLETED CASES
 from app.routes.completed_cases import router as completed_cases_router
-
-# ⏳ PENDING CASES
 from app.routes.pending_cases import router as pending_cases_router
-
-# 📅 TO BE APPOINTED
 from app.routes.to_be_appointed import router as to_be_appointed_router
-
-# 🚫 TO BE EXCEPTED
 from app.routes.to_be_excepted import router as to_be_excepted_router
-
-# 🚨 ALERT SYSTEM
 from app.routes.ars import router as ars_router
-
 
 # =========================
 # APP INIT
 # =========================
+
 app = FastAPI(
     title="Clinic Management API"
 )
 
-
 # =========================
 # STATIC FILES
 # =========================
+
 app.mount(
     "/uploads",
     StaticFiles(directory="uploads"),
     name="uploads"
 )
 
-
 # =========================
 # CORS
 # =========================
+
 app.add_middleware(
     CORSMiddleware,
 
     allow_origins=[
         "https://drzaffariqbal.com",
         "https://www.drzaffariqbal.com",
-        "http://localhost:3000"
+        "http://localhost:3000",
+        "*"
     ],
 
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
+    allow_methods=["*"],
+
+    allow_headers=["*"]
+)
 
 # =========================
 # ROUTES
@@ -159,42 +146,42 @@ app.include_router(
     tags=["LVI"]
 )
 
-# 🔥 ACCOUNT STATUS
+# ACCOUNT STATUS
 app.include_router(
     account_status_router,
     prefix="/account-status",
     tags=["Account Status"]
 )
 
-# 🌍 CITY PATIENTS
+# CITY PATIENTS
 app.include_router(
     city_patients_router,
     prefix="/city-patients",
     tags=["City Patients"]
 )
 
-# ✅ COMPLETED CASES
+# COMPLETED CASES
 app.include_router(
     completed_cases_router,
     prefix="/completed-cases",
     tags=["Completed Cases"]
 )
 
-# ⏳ PENDING CASES
+# PENDING CASES
 app.include_router(
     pending_cases_router,
     prefix="/pending-cases",
     tags=["Pending Cases"]
 )
 
-# 📅 TO BE APPOINTED
+# TO BE APPOINTED
 app.include_router(
     to_be_appointed_router,
     prefix="/to-be-appointed",
     tags=["To Be Appointed"]
 )
 
-# 🚫 TO BE EXCEPTED
+# TO BE EXCEPTED
 app.include_router(
     to_be_excepted_router,
     prefix="/to-be-excepted",
@@ -280,24 +267,24 @@ app.include_router(
     prefix="/acc"
 )
 
-# 🔥 PERMISSIONS
+# PERMISSIONS
 app.include_router(
     permissions_router,
     prefix="/permissions",
     tags=["Permissions"]
 )
 
-# 🚨 ALERT SYSTEM
+# ALERT SYSTEM
 app.include_router(
     ars_router,
     prefix="/ars",
     tags=["ARS"]
 )
 
-
 # =========================
 # ROOT
 # =========================
+
 @app.get("/")
 def root():
 
