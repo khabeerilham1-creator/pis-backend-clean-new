@@ -18,37 +18,12 @@ from reportlab.lib.pagesizes import letter
 router = APIRouter()
 
 invoice_collection = db["invoices"]
-patients_collection = db["patients"]
-
-# ==========================================
-# COLOR GRADING SYSTEM
-# ==========================================
-CATEGORY_COLORS = {
-    "GREEN": "#16a34a",
-    "BLUE": "#2563eb",
-    "PURPLE": "#9333ea",
-    "RED": "#dc2626",
-    "GOLD": "#ca8a04"
-}
-
-LIGHT_COLORS = {
-    "GREEN": "#dcfce7",
-    "BLUE": "#dbeafe",
-    "PURPLE": "#f3e8ff",
-    "RED": "#fee2e2",
-    "GOLD": "#fef9c3"
-}
 
 # ==========================================
 # CREATE
 # ==========================================
 @router.post("/")
 async def create_invoice(data: dict):
-
-    total_paid = sum([
-        float(p.get("amount", 0))
-        for p in data.get("payments", [])
-    ])
 
     amount = float(
         data.get("amount", 0)
@@ -60,10 +35,12 @@ async def create_invoice(data: dict):
 
     final_amount = amount - discount
 
-    data["paid"] = total_paid
+    paid = float(
+        data.get("paid", 0)
+    )
 
     data["balance"] = (
-        final_amount - total_paid
+        final_amount - paid
     )
 
     result = invoice_collection.insert_one(data)
@@ -74,21 +51,23 @@ async def create_invoice(data: dict):
 
     return data
 
+
 # ==========================================
 # GET
 # ==========================================
 @router.get("/")
 async def get_invoices():
 
-    data = []
+    invoices = []
 
     for item in invoice_collection.find():
 
         item["_id"] = str(item["_id"])
 
-        data.append(item)
+        invoices.append(item)
 
-    return data
+    return invoices
+
 
 # ==========================================
 # UPDATE
@@ -98,11 +77,6 @@ async def update_invoice(
     id: str,
     data: dict
 ):
-
-    total_paid = sum([
-        float(p.get("amount", 0))
-        for p in data.get("payments", [])
-    ])
 
     amount = float(
         data.get("amount", 0)
@@ -114,10 +88,12 @@ async def update_invoice(
 
     final_amount = amount - discount
 
-    data["paid"] = total_paid
+    paid = float(
+        data.get("paid", 0)
+    )
 
     data["balance"] = (
-        final_amount - total_paid
+        final_amount - paid
     )
 
     invoice_collection.update_one(
@@ -133,6 +109,7 @@ async def update_invoice(
         "msg": "Updated"
     }
 
+
 # ==========================================
 # DELETE
 # ==========================================
@@ -146,6 +123,7 @@ async def delete_invoice(id: str):
     return {
         "msg": "Deleted"
     }
+
 
 # ==========================================
 # PDF
@@ -162,50 +140,17 @@ async def generate_pdf(
     if not invoice:
 
         return {
-            "msg": "No invoice"
+            "msg": "No invoice found"
         }
 
-    # ==========================================
-    # PATIENT CATEGORY
-    # ==========================================
-    patient = patients_collection.find_one({
-        "name": patient_name
-    })
-
-    category = "GREEN"
-
-    if patient:
-
-        category = (
-            patient.get("category")
-            or patient.get("color")
-            or patient.get("grade")
-            or "GREEN"
-        ).upper()
-
-    print("PATIENT:", patient)
-    print("CATEGORY:", category)
-
-    main_color = CATEGORY_COLORS.get(
-        category,
-        "#16a34a"
-    )
-
-    light_color = LIGHT_COLORS.get(
-        category,
-        "#dcfce7"
-    )
-
-    filename = (
-        f"{patient_name}.pdf"
-    )
+    filename = f"{patient_name}.pdf"
 
     doc = SimpleDocTemplate(
         filename,
         pagesize=letter,
-        rightMargin=30,
-        leftMargin=30,
-        topMargin=30,
+        rightMargin=25,
+        leftMargin=25,
+        topMargin=25,
         bottomMargin=20
     )
 
@@ -219,11 +164,11 @@ async def generate_pdf(
     title = Table(
         [[
             Paragraph(
-                "<font color='white'><b>HDC Invoice</b></font>",
+                "<font color='white'><b>HDC INVOICE</b></font>",
                 styles["Title"]
             )
         ]],
-        colWidths=[520]
+        colWidths=[540]
     )
 
     title.setStyle(TableStyle([
@@ -232,7 +177,7 @@ async def generate_pdf(
             "BACKGROUND",
             (0,0),
             (-1,-1),
-            colors.HexColor(main_color)
+            colors.HexColor("#2563eb")
         ),
 
         (
@@ -261,51 +206,59 @@ async def generate_pdf(
     elements.append(title)
 
     elements.append(
-        Spacer(1, 25)
+        Spacer(1, 20)
     )
 
     # ==========================================
     # PATIENT INFO
     # ==========================================
-    patient_info = Paragraph(
-        f"<b>Patient:</b> {patient_name}",
-        styles["Heading2"]
-    )
+    info_data = [
 
-    elements.append(patient_info)
-
-    elements.append(
-        Spacer(1, 15)
-    )
-
-    # ==========================================
-    # BILLING TITLE
-    # ==========================================
-    billing_header = Table(
-        [[
-            Paragraph(
-                f"<font color='{main_color}'><b>BILLING DETAILS</b></font>",
-                styles["Heading3"]
+        [
+            "Patient",
+            invoice.get(
+                "patient_name",
+                "-"
             )
-        ]],
-        colWidths=[520]
+        ],
+
+        [
+            "Date",
+            invoice.get(
+                "invoice_date",
+                "-"
+            )
+        ]
+
+    ]
+
+    info_table = Table(
+        info_data,
+        colWidths=[180, 360]
     )
 
-    billing_header.setStyle(TableStyle([
+    info_table.setStyle(TableStyle([
+
+        (
+            "GRID",
+            (0,0),
+            (-1,-1),
+            1,
+            colors.HexColor("#d1d5db")
+        ),
 
         (
             "BACKGROUND",
             (0,0),
-            (-1,-1),
-            colors.HexColor(light_color)
+            (0,-1),
+            colors.HexColor("#eff6ff")
         ),
 
         (
-            "BOX",
+            "FONTNAME",
             (0,0),
-            (-1,-1),
-            1,
-            colors.HexColor(main_color)
+            (0,-1),
+            "Helvetica-Bold"
         ),
 
         (
@@ -324,18 +277,21 @@ async def generate_pdf(
 
     ]))
 
+    elements.append(info_table)
+
     elements.append(
-        billing_header
+        Spacer(1, 25)
     )
 
     # ==========================================
     # BILLING TABLE
     # ==========================================
     table_data = [[
-        "Procedure",
+        "Treatment",
         "Doctor",
         "Qty",
         "Rate",
+        "Category",
         "Amount"
     ]]
 
@@ -372,6 +328,11 @@ async def generate_pdf(
 
             f"Rs {rate}",
 
+            row.get(
+                "category",
+                ""
+            ),
+
             f"Rs {amount}"
 
         ])
@@ -379,10 +340,11 @@ async def generate_pdf(
     billing_table = Table(
         table_data,
         colWidths=[
-            200,
-            120,
+            160,
+            100,
             50,
             70,
+            80,
             80
         ]
     )
@@ -393,7 +355,7 @@ async def generate_pdf(
             "BACKGROUND",
             (0,0),
             (-1,0),
-            colors.HexColor(light_color)
+            colors.HexColor("#dbeafe")
         ),
 
         (
@@ -408,15 +370,7 @@ async def generate_pdf(
             (0,0),
             (-1,-1),
             1,
-            colors.HexColor("#d1d5db")
-        ),
-
-        (
-            "BOX",
-            (0,0),
-            (-1,-1),
-            1,
-            colors.HexColor(main_color)
+            colors.HexColor("#cbd5e1")
         ),
 
         (
@@ -434,76 +388,64 @@ async def generate_pdf(
         ),
 
         (
-            "VALIGN",
-            (0,0),
+            "ALIGN",
+            (2,1),
             (-1,-1),
-            "MIDDLE"
+            "CENTER"
         )
 
     ]))
 
-    elements.append(
-        billing_table
-    )
+    elements.append(billing_table)
 
     elements.append(
         Spacer(1, 25)
     )
 
     # ==========================================
-    # SUMMARY TITLE
+    # CATEGORY TOTALS
     # ==========================================
-    summary_header = Table(
-        [[
-            Paragraph(
-                f"<font color='{main_color}'><b>SUMMARY</b></font>",
-                styles["Heading3"]
-            )
-        ]],
-        colWidths=[520]
-    )
+    category1 = 0
+    category2 = 0
+    category3 = 0
 
-    summary_header.setStyle(TableStyle([
+    for row in rows:
 
-        (
-            "BACKGROUND",
-            (0,0),
-            (-1,-1),
-            colors.HexColor(light_color)
-        ),
-
-        (
-            "BOX",
-            (0,0),
-            (-1,-1),
-            1,
-            colors.HexColor(main_color)
-        ),
-
-        (
-            "TOPPADDING",
-            (0,0),
-            (-1,-1),
-            10
-        ),
-
-        (
-            "BOTTOMPADDING",
-            (0,0),
-            (-1,-1),
-            10
+        qty = int(
+            row.get("qty", 1)
         )
 
-    ]))
+        rate = float(
+            row.get("rate", 0)
+        )
 
-    elements.append(
-        summary_header
-    )
+        total = qty * rate
 
-    # ==========================================
-    # SUMMARY TABLE
-    # ==========================================
-    summary = Table([
+        if row.get("category") == "Category 1":
+            category1 += total
+
+        elif row.get("category") == "Category 2":
+            category2 += total
+
+        elif row.get("category") == "Category 3":
+            category3 += total
+
+    summary_data = [
+
+        [
+            "Category 1",
+            f"Rs {category1}"
+        ],
+
+        [
+            "Category 2",
+            f"Rs {category2}"
+        ],
+
+        [
+            "Category 3",
+            f"Rs {category3}"
+        ],
 
         [
             "Total",
@@ -525,25 +467,28 @@ async def generate_pdf(
             f"Rs {invoice.get('balance', 0)}"
         ]
 
-    ],
-    colWidths=[260, 260])
+    ]
 
-    summary.setStyle(TableStyle([
+    summary_table = Table(
+        summary_data,
+        colWidths=[270, 270]
+    )
+
+    summary_table.setStyle(TableStyle([
 
         (
             "GRID",
             (0,0),
             (-1,-1),
             1,
-            colors.HexColor("#d1d5db")
+            colors.HexColor("#cbd5e1")
         ),
 
         (
-            "BOX",
+            "BACKGROUND",
             (0,0),
-            (-1,-1),
-            1,
-            colors.HexColor(main_color)
+            (0,-1),
+            colors.HexColor("#eff6ff")
         ),
 
         (
@@ -551,13 +496,6 @@ async def generate_pdf(
             (0,0),
             (-1,-1),
             "Helvetica-Bold"
-        ),
-
-        (
-            "ALIGN",
-            (1,0),
-            (-1,-1),
-            "CENTER"
         ),
 
         (
@@ -572,11 +510,18 @@ async def generate_pdf(
             (0,0),
             (-1,-1),
             10
+        ),
+
+        (
+            "ALIGN",
+            (1,0),
+            (1,-1),
+            "CENTER"
         )
 
     ]))
 
-    elements.append(summary)
+    elements.append(summary_table)
 
     # ==========================================
     # BUILD
