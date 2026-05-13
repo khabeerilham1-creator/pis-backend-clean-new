@@ -11,59 +11,169 @@ router = APIRouter()
 checkups = db["checkups"]
 
 
+# =========================
+# GET ALL CHECKUPS
+# =========================
+
 @router.get("/")
 def get_checkups():
+
     result = []
+
     for c in checkups.find():
+
         c["_id"] = str(c["_id"])
+
         result.append(c)
+
     return result
 
+
+# =========================
+# CREATE CHECKUP
+# =========================
 
 @router.post("/")
 def create_checkup(data: dict):
 
-    # ✅ AUTO LINK BY PHONE
-    if not data.get("patient_id"):
-        data["patient_id"] = get_patient_id_by_phone(data.get("phone"))
+    print("CHECKUP DATA:", data)
 
-    # 🔥 FORCE STRING
-    data["patient_id"] = str(data.get("patient_id"))
+    # 🔥 AUTO LINK PATIENT
+    patient_id = data.get("patient_id")
 
+    if not patient_id:
+
+        patient_id = get_patient_id_by_phone(
+            data.get("contact")
+        )
+
+    # 🔥 SAFETY
+    if patient_id:
+
+        data["patient_id"] = str(patient_id)
+
+    else:
+
+        data["patient_id"] = ""
+
+    # 🔥 INSERT
     result = checkups.insert_one(data)
 
-    add_to_timeline(
-        patient_id=data.get("patient_id"),
-        event_type="checkup",
-        ref_id=str(result.inserted_id),
-        data={
-            "notes": data.get("notes"),
-            "diagnosis": data.get("diagnosis")
-        }
-    )
+    inserted_id = str(result.inserted_id)
 
-    # 🔥 MAIN FIX
-    sync_patient_file(
-        patient_id=data.get("patient_id"),
-        phone=data.get("phone")
-    )
+    # 🔥 TIMELINE
+    try:
 
-    return {"msg": "Checkup created"}
+        if data.get("patient_id"):
 
+            add_to_timeline(
+
+                patient_id=data.get("patient_id"),
+
+                event_type="checkup",
+
+                ref_id=inserted_id,
+
+                data={
+
+                    "complaint":
+                        data.get("complaint"),
+
+                    "tasks":
+                        data.get("tasks", [])
+
+                }
+
+            )
+
+    except Exception as e:
+
+        print("TIMELINE ERROR:", e)
+
+    # 🔥 FILE SYNC
+    try:
+
+        sync_patient_file(
+
+            patient_id=data.get("patient_id"),
+
+            phone=data.get("contact")
+
+        )
+
+    except Exception as e:
+
+        print("FILE SYNC ERROR:", e)
+
+    return {
+
+        "msg": "Checkup created",
+
+        "id": inserted_id
+
+    }
+
+
+# =========================
+# UPDATE CHECKUP
+# =========================
 
 @router.put("/{id}")
-def update_checkup(id: str, data: dict):
+def update_checkup(
+    id: str,
+    data: dict
+):
 
-    data["patient_id"] = str(data.get("patient_id"))
+    if data.get("patient_id"):
 
-    checkups.update_one({"_id": ObjectId(id)}, {"$set": data})
+        data["patient_id"] = str(
+            data.get("patient_id")
+        )
 
-    sync_patient_file(patient_id=data.get("patient_id"))
+    checkups.update_one(
 
-    return {"msg": "Updated"}
+        {"_id": ObjectId(id)},
 
+        {"$set": data}
+
+    )
+
+    try:
+
+        sync_patient_file(
+
+            patient_id=data.get("patient_id"),
+
+            phone=data.get("contact")
+
+        )
+
+    except Exception as e:
+
+        print("SYNC ERROR:", e)
+
+    return {
+
+        "msg": "Updated"
+
+    }
+
+
+# =========================
+# DELETE CHECKUP
+# =========================
 
 @router.delete("/{id}")
 def delete_checkup(id: str):
-    checkups.delete_one({"_id": ObjectId(id)})
-    return {"msg": "Deleted"}
+
+    checkups.delete_one({
+
+        "_id": ObjectId(id)
+
+    })
+
+    return {
+
+        "msg": "Deleted"
+
+    }
