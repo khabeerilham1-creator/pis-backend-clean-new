@@ -40,7 +40,7 @@ def generate_patient_file_pdf(patient_id: str, year: str):
         info=data.get("patient_info", {}),
         checkups=data.get("checkups", []),
         visits=data.get("visits", []),
-        billing=data.get("billing", []),
+        billing=data.get("invoices", []),
         payments=data.get("payments", []),
         timeline=data.get("timeline", []),
         year=year

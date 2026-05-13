@@ -55,7 +55,7 @@ def sync_patient_file(patient_id: str = None, phone: str = None):
         "patient_info": patient,
         "checkups": list(checkups.find(query, {"_id": 0})),
         "visits": list(visits.find(query, {"_id": 0})),
-        "billing": list(billing.find(query, {"_id": 0})),
+        "invoices": list(invoices.find(query, {"_id": 0})),
         "payments": list(payments.find(query, {"_id": 0})),
         "timeline": list(timeline.find(query, {"_id": 0}))
     }
