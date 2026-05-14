@@ -72,31 +72,6 @@ async def get_invoices():
 
 
 # ==========================================
-# GET SINGLE
-# ==========================================
-@router.get("/{invoice_id}")
-async def get_invoice(
-    invoice_id: str
-):
-
-    invoice = invoice_collection.find_one({
-        "_id": ObjectId(invoice_id)
-    })
-
-    if not invoice:
-
-        return {
-            "msg": "Invoice not found"
-        }
-
-    invoice["_id"] = str(
-        invoice["_id"]
-    )
-
-    return invoice
-
-
-# ==========================================
 # PDF
 # ==========================================
 @router.get("/pdf/{invoice_id}")
@@ -104,8 +79,23 @@ async def generate_pdf(
     invoice_id: str
 ):
 
+    # ==========================================
+    # FIX INVALID OBJECT ID
+    # ==========================================
+    try:
+
+        obj_id = ObjectId(
+            invoice_id
+        )
+
+    except:
+
+        return {
+            "msg": "Invalid invoice id"
+        }
+
     invoice = invoice_collection.find_one({
-        "_id": ObjectId(invoice_id)
+        "_id": obj_id
     })
 
     if not invoice:
@@ -317,13 +307,6 @@ async def generate_pdf(
             (-1,-1),
             1,
             colors.black
-        ),
-
-        (
-            "ALIGN",
-            (2,1),
-            (-1,-1),
-            "CENTER"
         )
 
     ]))
@@ -358,7 +341,7 @@ async def generate_pdf(
     summary_data = [
 
         [
-            "Total Amount",
+            "Total",
             str(total)
         ],
 
@@ -399,20 +382,6 @@ async def generate_pdf(
             (0,0),
             (0,-1),
             colors.HexColor("#eff6ff")
-        ),
-
-        (
-            "FONTNAME",
-            (0,0),
-            (-1,-1),
-            "Helvetica-Bold"
-        ),
-
-        (
-            "ALIGN",
-            (1,0),
-            (1,-1),
-            "CENTER"
         )
 
     ]))
