@@ -57,6 +57,14 @@ app.mount(
     name="uploads"
 )
 
+# 🔥 DENTAL CHART IMAGE
+
+app.mount(
+    "/static",
+    StaticFiles(directory="app/routes"),
+    name="static"
+)
+
 # =========================
 # CORS
 # =========================
