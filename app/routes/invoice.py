@@ -39,6 +39,22 @@ async def create_invoice(data: dict):
 
     return data
 
+  # ==========================================
+# GET ALL INVOICES
+# ==========================================
+@router.get("/")
+async def get_invoices():
+
+    invoices = []
+
+    for i in invoice_collection.find():
+
+        i["_id"] = str(i["_id"])
+
+        invoices.append(i)
+
+    return invoices
+
 # ==========================================
 # PDF ROUTE
 # ==========================================
