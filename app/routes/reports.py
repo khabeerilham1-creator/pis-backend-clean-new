@@ -128,7 +128,7 @@ def report_pdf(patient_id: str):
         raise HTTPException(status_code=500, detail="report.html missing")
 
     # 🔥 TOOTH IMAGE (FIXED)
-    tooth_path = os.path.abspath("app/static/teeth.png")
+    tooth_path = os.path.abspath("app/static/tooth_chart.png")
 
     html_content = template.render(
         patient=patient,
