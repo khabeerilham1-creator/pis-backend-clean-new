@@ -13,7 +13,7 @@ from reportlab.platypus import (
 
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import A4
 
 router = APIRouter()
 
@@ -33,15 +33,15 @@ async def create_invoice(data: dict):
         data.get("discount", 0)
     )
 
-    final_amount = amount - discount
-
     paid = float(
         data.get("paid", 0)
     )
 
-    data["balance"] = (
-        final_amount - paid
-    )
+    final_amount = amount - discount
+
+    balance = final_amount - paid
+
+    data["balance"] = balance
 
     result = invoice_collection.insert_one(data)
 
@@ -70,62 +70,6 @@ async def get_invoices():
 
 
 # ==========================================
-# UPDATE
-# ==========================================
-@router.put("/{id}")
-async def update_invoice(
-    id: str,
-    data: dict
-):
-
-    amount = float(
-        data.get("amount", 0)
-    )
-
-    discount = float(
-        data.get("discount", 0)
-    )
-
-    final_amount = amount - discount
-
-    paid = float(
-        data.get("paid", 0)
-    )
-
-    data["balance"] = (
-        final_amount - paid
-    )
-
-    invoice_collection.update_one(
-        {
-            "_id": ObjectId(id)
-        },
-        {
-            "$set": data
-        }
-    )
-
-    return {
-        "msg": "Updated"
-    }
-
-
-# ==========================================
-# DELETE
-# ==========================================
-@router.delete("/{id}")
-async def delete_invoice(id: str):
-
-    invoice_collection.delete_one({
-        "_id": ObjectId(id)
-    })
-
-    return {
-        "msg": "Deleted"
-    }
-
-
-# ==========================================
 # PDF
 # ==========================================
 @router.get("/pdf/{patient_name}")
@@ -146,12 +90,17 @@ async def generate_pdf(
     filename = f"{patient_name}.pdf"
 
     doc = SimpleDocTemplate(
+
         filename,
-        pagesize=letter,
-        rightMargin=25,
-        leftMargin=25,
-        topMargin=25,
-        bottomMargin=20
+
+        pagesize=A4,
+
+        rightMargin=40,
+        leftMargin=40,
+
+        topMargin=120,
+        bottomMargin=40
+
     )
 
     styles = getSampleStyleSheet()
@@ -161,47 +110,10 @@ async def generate_pdf(
     # ==========================================
     # TITLE
     # ==========================================
-    title = Table(
-        [[
-            Paragraph(
-                "<font color='white'><b>HDC INVOICE</b></font>",
-                styles["Title"]
-            )
-        ]],
-        colWidths=[540]
+    title = Paragraph(
+        "<font size='20'><b>HDC Invoice</b></font>",
+        styles["Title"]
     )
-
-    title.setStyle(TableStyle([
-
-        (
-            "BACKGROUND",
-            (0,0),
-            (-1,-1),
-            colors.HexColor("#2563eb")
-        ),
-
-        (
-            "ALIGN",
-            (0,0),
-            (-1,-1),
-            "CENTER"
-        ),
-
-        (
-            "TOPPADDING",
-            (0,0),
-            (-1,-1),
-            18
-        ),
-
-        (
-            "BOTTOMPADDING",
-            (0,0),
-            (-1,-1),
-            18
-        )
-
-    ]))
 
     elements.append(title)
 
@@ -210,7 +122,7 @@ async def generate_pdf(
     )
 
     # ==========================================
-    # PATIENT INFO
+    # INFO
     # ==========================================
     info_data = [
 
@@ -228,13 +140,21 @@ async def generate_pdf(
                 "invoice_date",
                 "-"
             )
+        ],
+
+        [
+            "Invoice No",
+            invoice.get(
+                "invoice_no",
+                "-"
+            )
         ]
 
     ]
 
     info_table = Table(
         info_data,
-        colWidths=[180, 360]
+        colWidths=[180, 300]
     )
 
     info_table.setStyle(TableStyle([
@@ -244,14 +164,14 @@ async def generate_pdf(
             (0,0),
             (-1,-1),
             1,
-            colors.HexColor("#d1d5db")
+            colors.black
         ),
 
         (
             "BACKGROUND",
             (0,0),
             (0,-1),
-            colors.HexColor("#eff6ff")
+            colors.HexColor("#dbeafe")
         ),
 
         (
@@ -259,20 +179,6 @@ async def generate_pdf(
             (0,0),
             (0,-1),
             "Helvetica-Bold"
-        ),
-
-        (
-            "TOPPADDING",
-            (0,0),
-            (-1,-1),
-            10
-        ),
-
-        (
-            "BOTTOMPADDING",
-            (0,0),
-            (-1,-1),
-            10
         )
 
     ]))
@@ -287,12 +193,12 @@ async def generate_pdf(
     # BILLING TABLE
     # ==========================================
     table_data = [[
+
         "Treatment",
-        "Doctor",
         "Qty",
         "Rate",
-        "Category",
         "Amount"
+
     ]]
 
     rows = invoice.get(
@@ -302,7 +208,7 @@ async def generate_pdf(
 
     for row in rows:
 
-        qty = int(
+        qty = float(
             row.get("qty", 1)
         )
 
@@ -319,34 +225,25 @@ async def generate_pdf(
                 ""
             ),
 
-            row.get(
-                "doctor",
-                ""
-            ),
-
             str(qty),
 
-            f"Rs {rate}",
+            str(rate),
 
-            row.get(
-                "category",
-                ""
-            ),
-
-            f"Rs {amount}"
+            str(amount)
 
         ])
 
     billing_table = Table(
+
         table_data,
+
         colWidths=[
-            160,
-            100,
-            50,
+            260,
             70,
             80,
-            80
+            100
         ]
+
     )
 
     billing_table.setStyle(TableStyle([
@@ -355,7 +252,14 @@ async def generate_pdf(
             "BACKGROUND",
             (0,0),
             (-1,0),
-            colors.HexColor("#dbeafe")
+            colors.HexColor("#2563eb")
+        ),
+
+        (
+            "TEXTCOLOR",
+            (0,0),
+            (-1,0),
+            colors.white
         ),
 
         (
@@ -370,26 +274,12 @@ async def generate_pdf(
             (0,0),
             (-1,-1),
             1,
-            colors.HexColor("#cbd5e1")
-        ),
-
-        (
-            "TOPPADDING",
-            (0,0),
-            (-1,-1),
-            8
-        ),
-
-        (
-            "BOTTOMPADDING",
-            (0,0),
-            (-1,-1),
-            8
+            colors.black
         ),
 
         (
             "ALIGN",
-            (2,1),
+            (1,1),
             (-1,-1),
             "CENTER"
         )
@@ -399,79 +289,57 @@ async def generate_pdf(
     elements.append(billing_table)
 
     elements.append(
-        Spacer(1, 25)
+        Spacer(1, 30)
     )
 
     # ==========================================
-    # CATEGORY TOTALS
+    # SUMMARY
     # ==========================================
-    category1 = 0
-    category2 = 0
-    category3 = 0
+    total = float(
+        invoice.get("amount", 0)
+    )
 
-    for row in rows:
+    discount = float(
+        invoice.get("discount", 0)
+    )
 
-        qty = int(
-            row.get("qty", 1)
-        )
+    paid = float(
+        invoice.get("paid", 0)
+    )
 
-        rate = float(
-            row.get("rate", 0)
-        )
-
-        total = qty * rate
-
-        if row.get("category") == "Category 1":
-            category1 += total
-
-        elif row.get("category") == "Category 2":
-            category2 += total
-
-        elif row.get("category") == "Category 3":
-            category3 += total
+    balance = (
+        total -
+        discount -
+        paid
+    )
 
     summary_data = [
 
         [
-            "Category 1",
-            f"Rs {category1}"
-        ],
-
-        [
-            "Category 2",
-            f"Rs {category2}"
-        ],
-
-        [
-            "Category 3",
-            f"Rs {category3}"
-        ],
-
-        [
-            "Total",
-            f"Rs {invoice.get('amount', 0)}"
+            "Total Amount",
+            str(total)
         ],
 
         [
             "Discount",
-            f"Rs {invoice.get('discount', 0)}"
+            str(discount)
         ],
 
         [
             "Paid",
-            f"Rs {invoice.get('paid', 0)}"
+            str(paid)
         ],
 
         [
             "Balance",
-            f"Rs {invoice.get('balance', 0)}"
+            str(balance)
         ]
 
     ]
 
     summary_table = Table(
         summary_data,
-        colWidths=[270, 270]
+        colWidths=[250, 250]
     )
 
     summary_table.setStyle(TableStyle([
@@ -481,7 +349,7 @@ async def generate_pdf(
             (0,0),
             (-1,-1),
             1,
-            colors.HexColor("#cbd5e1")
+            colors.black
         ),
 
         (
@@ -499,20 +367,6 @@ async def generate_pdf(
         ),
 
         (
-            "TOPPADDING",
-            (0,0),
-            (-1,-1),
-            10
-        ),
-
-        (
-            "BOTTOMPADDING",
-            (0,0),
-            (-1,-1),
-            10
-        ),
-
-        (
             "ALIGN",
             (1,0),
             (1,-1),
@@ -524,12 +378,16 @@ async def generate_pdf(
     elements.append(summary_table)
 
     # ==========================================
-    # BUILD
+    # BUILD PDF
     # ==========================================
     doc.build(elements)
 
     return FileResponse(
+
         filename,
+
         media_type="application/pdf",
+
         filename=filename
+
     )
