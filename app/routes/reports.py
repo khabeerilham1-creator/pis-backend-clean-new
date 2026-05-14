@@ -1,148 +1,491 @@
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import Response
+from fastapi import APIRouter
+from fastapi.responses import FileResponse
 from app.core.database import db
 from bson import ObjectId
-from datetime import datetime
-from jinja2 import Environment, FileSystemLoader
-from weasyprint import HTML
+
+from reportlab.platypus import (
+    SimpleDocTemplate,
+    Table,
+    TableStyle,
+    Spacer,
+    Paragraph,
+    Image
+)
+
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.units import mm
+
 import os
 
 router = APIRouter()
 
-patients = db["patients"]
-checkups = db["checkups"]
-visits = db["visits"]
 invoices = db["invoices"]
 
+BASE_DIR = os.path.dirname(
+    os.path.abspath(__file__)
+)
 
-# =========================
-# GET REPORT DATA
-# =========================
-@router.get("/{patient_id}")
-def get_report(patient_id: str):
-
-    try:
-        patient = patients.find_one({"_id": ObjectId(patient_id)})
-    except:
-        raise HTTPException(status_code=400, detail="Invalid patient ID")
-
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found")
-
-    patient["_id"] = str(patient["_id"])
-
-    # 🔥 HANDLE BOTH patient + patient_id
-    checkup_list = list(checkups.find({
-        "$or": [
-            {"patient": patient_id},
-            {"patient_id": patient_id}
-        ]
-    }))
-
-    visit_list = list(visits.find({
-        "$or": [
-            {"patient": patient_id},
-            {"patient_id": patient_id}
-        ]
-    }))
-
-    # 🔥 IMPORTANT FIX (INVOICE ISSUE)
-    invoice_list = list(invoices.find({
-        "$or": [
-            {"patient_id": patient_id},
-            {"patient_name": patient.get("name")}
-        ]
-    }))
-
-    # convert IDs
-    for c in checkup_list:
-        c["_id"] = str(c["_id"])
-
-    for v in visit_list:
-        v["_id"] = str(v["_id"])
-
-    for i in invoice_list:
-        i["_id"] = str(i["_id"])
-
-    return {
-        "patient": patient,
-        "checkups": checkup_list,
-        "visits": visit_list,
-        "invoices": invoice_list
-    }
-
-
-# =========================
-# PDF REPORT
-# =========================
-@router.get("/pdf/{patient_id}")
-def report_pdf(patient_id: str):
+# =========================================
+# PDF
+# =========================================
+@router.get("/pdf/{invoice_id}")
+async def invoice_pdf(invoice_id: str):
 
     try:
-        patient = patients.find_one({"_id": ObjectId(patient_id)})
+
+        invoice = invoices.find_one({
+            "_id": ObjectId(invoice_id)
+        })
+
     except:
-        raise HTTPException(status_code=400, detail="Invalid patient ID")
 
-    if not patient:
-        raise HTTPException(status_code=404, detail="Patient not found")
+        return {
+            "msg": "Invalid invoice id"
+        }
 
-    patient["_id"] = str(patient["_id"])
+    if not invoice:
 
-    # 🔥 FIX QUERIES (CRITICAL)
-    checkup_list = list(checkups.find({
-        "$or": [
-            {"patient": patient_id},
-            {"patient_id": patient_id}
-        ]
-    }))
+        return {
+            "msg": "No invoice found"
+        }
 
-    visit_list = list(visits.find({
-        "$or": [
-            {"patient": patient_id},
-            {"patient_id": patient_id}
-        ]
-    }))
+    rows = invoice.get("rows", [])
 
-    invoice_list = list(invoices.find({
-        "$or": [
-            {"patient_id": patient_id},
-            {"patient_name": patient.get("name")}
-        ]
-    }))
-
-    # 🔥 CONVERT IDs
-    for c in checkup_list:
-        c["_id"] = str(c["_id"])
-
-    for v in visit_list:
-        v["_id"] = str(v["_id"])
-
-    for i in invoice_list:
-        i["_id"] = str(i["_id"])
-
-    # 🔥 LOAD TEMPLATE
-    try:
-        env = Environment(loader=FileSystemLoader("app/templates"))
-        template = env.get_template("report.html")
-    except:
-        raise HTTPException(status_code=500, detail="report.html missing")
-
-    # 🔥 TOOTH IMAGE (FIXED)
-    tooth_path = os.path.abspath("app/static/tooth_chart.png")
-
-    html_content = template.render(
-        patient=patient,
-        checkups=checkup_list,
-        visits=visit_list,
-        invoices=invoice_list,
-        date=datetime.now().strftime("%Y-%m-%d"),
-        tooth_image="file:///" + tooth_path
+    pdf_path = os.path.join(
+        BASE_DIR,
+        f"invoice_{invoice_id}.pdf"
     )
 
-    pdf = HTML(string=html_content).write_pdf()
+    doc = SimpleDocTemplate(
 
-    return Response(
-        content=pdf,
+        pdf_path,
+
+        pagesize=A4,
+
+        topMargin=10 * mm,
+        bottomMargin=10 * mm,
+
+        leftMargin=10 * mm,
+        rightMargin=10 * mm
+
+    )
+
+    styles = getSampleStyleSheet()
+
+    elements = []
+
+    # =========================================
+    # TITLE
+    # =========================================
+    title = Paragraph(
+
+        "<b><font size='18'>HDC Invoice</font></b>",
+
+        styles["Title"]
+
+    )
+
+    elements.append(title)
+
+    elements.append(
+        Spacer(1, 12)
+    )
+
+    # =========================================
+    # BIO DATA
+    # =========================================
+    bio_data = [
+
+        [
+            "Pt. Name :",
+            invoice.get(
+                "patient_name",
+                ""
+            ),
+
+            "Date :",
+            invoice.get(
+                "invoice_date",
+                ""
+            )
+        ],
+
+        [
+            "Contact :",
+            "",
+
+            "Category:",
+            invoice.get(
+                "category",
+                "Category 1"
+            )
+        ],
+
+        [
+            "Address :",
+            "",
+
+            "Patient type:",
+            ""
+        ]
+
+    ]
+
+    bio = Table(
+
+        bio_data,
+
+        colWidths=[
+            90,
+            180,
+            90,
+            150
+        ]
+
+    )
+
+    bio.setStyle(TableStyle([
+
+        (
+            "GRID",
+            (0,0),
+            (-1,-1),
+            1,
+            colors.black
+        ),
+
+        (
+            "FONTNAME",
+            (0,0),
+            (-1,-1),
+            "Helvetica"
+        )
+
+    ]))
+
+    elements.append(bio)
+
+    elements.append(
+        Spacer(1, 15)
+    )
+
+    # =========================================
+    # TOOTH IMAGE
+    # =========================================
+    tooth_path = os.path.join(
+        BASE_DIR,
+        "teeth.png"
+    )
+
+    if os.path.exists(tooth_path):
+
+        img = Image(
+
+            tooth_path,
+
+            width=170 * mm,
+
+            height=40 * mm
+
+        )
+
+        elements.append(img)
+
+    elements.append(
+        Spacer(1, 10)
+    )
+
+    # =========================================
+    # TREATMENT DETAILS
+    # =========================================
+    treatment_table = [[
+
+        "S No",
+        "Details",
+        "Pre Existing Condition",
+        "Recommended Treatment"
+
+    ]]
+
+    for i, row in enumerate(rows):
+
+        treatment_table.append([
+
+            str(i + 1),
+
+            row.get(
+                "treatment",
+                ""
+            ),
+
+            "",
+
+            row.get(
+                "treatment",
+                ""
+            )
+
+        ])
+
+    while len(treatment_table) < 7:
+
+        treatment_table.append([
+            "",
+            "",
+            "",
+            ""
+        ])
+
+    t_table = Table(
+
+        treatment_table,
+
+        colWidths=[
+            40,
+            180,
+            150,
+            150
+        ]
+
+    )
+
+    t_table.setStyle(TableStyle([
+
+        (
+            "GRID",
+            (0,0),
+            (-1,-1),
+            1,
+            colors.black
+        ),
+
+        (
+            "BACKGROUND",
+            (0,0),
+            (-1,0),
+            colors.lightgrey
+        ),
+
+        (
+            "FONTNAME",
+            (0,0),
+            (-1,0),
+            "Helvetica-Bold"
+        )
+
+    ]))
+
+    elements.append(
+        Paragraph(
+            "<b>Treatment Details :</b>",
+            styles["Normal"]
+        )
+    )
+
+    elements.append(
+        Spacer(1, 5)
+    )
+
+    elements.append(t_table)
+
+    elements.append(
+        Spacer(1, 20)
+    )
+
+    # =========================================
+    # INVOICE TABLE
+    # =========================================
+    invoice_table = [[
+
+        "S No",
+        "Details",
+        "Qty",
+        "Rate",
+        "Cost"
+
+    ]]
+
+    total = 0
+
+    for i, row in enumerate(rows):
+
+        qty = float(
+            row.get("qty", 1)
+        )
+
+        rate = float(
+            row.get("rate", 0)
+        )
+
+        cost = qty * rate
+
+        total += cost
+
+        invoice_table.append([
+
+            str(i + 1),
+
+            row.get(
+                "treatment",
+                ""
+            ),
+
+            str(qty),
+
+            str(rate),
+
+            str(cost)
+
+        ])
+
+    while len(invoice_table) < 5:
+
+        invoice_table.append([
+            "",
+            "",
+            "",
+            "",
+            ""
+        ])
+
+    inv_table = Table(
+
+        invoice_table,
+
+        colWidths=[
+            40,
+            240,
+            60,
+            70,
+            90
+        ]
+
+    )
+
+    inv_table.setStyle(TableStyle([
+
+        (
+            "GRID",
+            (0,0),
+            (-1,-1),
+            1,
+            colors.black
+        ),
+
+        (
+            "BACKGROUND",
+            (0,0),
+            (-1,0),
+            colors.lightgrey
+        ),
+
+        (
+            "FONTNAME",
+            (0,0),
+            (-1,0),
+            "Helvetica-Bold"
+        )
+
+    ]))
+
+    elements.append(
+        Paragraph(
+            "<b>Invoice :</b>",
+            styles["Normal"]
+        )
+    )
+
+    elements.append(
+        Spacer(1, 5)
+    )
+
+    elements.append(inv_table)
+
+    elements.append(
+        Spacer(1, 15)
+    )
+
+    # =========================================
+    # TOTALS
+    # =========================================
+    discount = float(
+        invoice.get(
+            "discount",
+            0
+        )
+    )
+
+    net = total - discount
+
+    totals = Table([
+
+        [
+            "",
+            "Total Amount",
+            str(total)
+        ],
+
+        [
+            "",
+            "Discount",
+            str(discount)
+        ],
+
+        [
+            "",
+            "Net Amount",
+            str(net)
+        ]
+
+    ],
+
+    colWidths=[
+        290,
+        120,
+        90
+    ])
+
+    totals.setStyle(TableStyle([
+
+        (
+            "GRID",
+            (1,0),
+            (-1,-1),
+            1,
+            colors.black
+        ),
+
+        (
+            "BACKGROUND",
+            (1,2),
+            (-1,2),
+            colors.lightgrey
+        ),
+
+        (
+            "FONTNAME",
+            (1,0),
+            (-1,-1),
+            "Helvetica-Bold"
+        )
+
+    ]))
+
+    elements.append(totals)
+
+    # =========================================
+    # BUILD PDF
+    # =========================================
+    doc.build(elements)
+
+    return FileResponse(
+
+        pdf_path,
+
         media_type="application/pdf",
-        headers={"Content-Disposition": "inline; filename=report.pdf"}
+
+        filename=f"invoice_{invoice_id}.pdf"
+
     )
