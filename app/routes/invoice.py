@@ -15,12 +15,14 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.lib.pagesizes import A4
 
+import os
+
 router = APIRouter()
 
 invoice_collection = db["invoices"]
 
 # ==========================================
-# CREATE
+# CREATE INVOICE
 # ==========================================
 @router.post("/")
 async def create_invoice(data: dict):
@@ -53,7 +55,7 @@ async def create_invoice(data: dict):
 
 
 # ==========================================
-# GET
+# GET ALL
 # ==========================================
 @router.get("/")
 async def get_invoices():
@@ -70,15 +72,40 @@ async def get_invoices():
 
 
 # ==========================================
-# PDF
+# GET SINGLE
 # ==========================================
-@router.get("/pdf/{patient_name}")
-async def generate_pdf(
-    patient_name: str
+@router.get("/{invoice_id}")
+async def get_invoice(
+    invoice_id: str
 ):
 
     invoice = invoice_collection.find_one({
-        "patient_name": patient_name
+        "_id": ObjectId(invoice_id)
+    })
+
+    if not invoice:
+
+        return {
+            "msg": "Invoice not found"
+        }
+
+    invoice["_id"] = str(
+        invoice["_id"]
+    )
+
+    return invoice
+
+
+# ==========================================
+# PDF
+# ==========================================
+@router.get("/pdf/{invoice_id}")
+async def generate_pdf(
+    invoice_id: str
+):
+
+    invoice = invoice_collection.find_one({
+        "_id": ObjectId(invoice_id)
     })
 
     if not invoice:
@@ -87,7 +114,7 @@ async def generate_pdf(
             "msg": "No invoice found"
         }
 
-    filename = f"{patient_name}.pdf"
+    filename = f"invoice_{invoice_id}.pdf"
 
     doc = SimpleDocTemplate(
 
@@ -148,6 +175,14 @@ async def generate_pdf(
                 "invoice_no",
                 "-"
             )
+        ],
+
+        [
+            "Category",
+            invoice.get(
+                "category",
+                "-"
+            )
         ]
 
     ]
@@ -195,6 +230,7 @@ async def generate_pdf(
     table_data = [[
 
         "Treatment",
+        "Doctor",
         "Qty",
         "Rate",
         "Amount"
@@ -225,6 +261,11 @@ async def generate_pdf(
                 ""
             ),
 
+            row.get(
+                "doctor",
+                ""
+            ),
+
             str(qty),
 
             str(rate),
@@ -238,10 +279,11 @@ async def generate_pdf(
         table_data,
 
         colWidths=[
-            260,
+            170,
+            120,
+            50,
             70,
-            80,
-            100
+            90
         ]
 
     )
@@ -279,7 +321,7 @@ async def generate_pdf(
 
         (
             "ALIGN",
-            (1,1),
+            (2,1),
             (-1,-1),
             "CENTER"
         )
