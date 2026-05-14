@@ -23,10 +23,6 @@ router = APIRouter()
 
 invoice_collection = db["invoices"]
 
-BASE_DIR = os.path.dirname(
-    os.path.abspath(__file__)
-)
-
 # ==========================================
 # CREATE INVOICE
 # ==========================================
@@ -39,7 +35,7 @@ async def create_invoice(data: dict):
 
     return data
 
-  # ==========================================
+# ==========================================
 # GET ALL INVOICES
 # ==========================================
 @router.get("/")
@@ -59,9 +55,7 @@ async def get_invoices():
 # PDF ROUTE
 # ==========================================
 @router.get("/pdf/{invoice_id}")
-async def generate_pdf(
-    invoice_id: str
-):
+async def generate_pdf(invoice_id: str):
 
     try:
 
@@ -115,44 +109,26 @@ async def generate_pdf(
 
         [
             "Pt. Name :",
-            invoice.get(
-                "patient_name",
-                ""
-            ),
+            invoice.get("patient_name", ""),
 
             "Date :",
-            invoice.get(
-                "invoice_date",
-                ""
-            )
+            invoice.get("invoice_date", "")
         ],
 
         [
             "Contact :",
-            invoice.get(
-                "mobile",
-                ""
-            ),
+            invoice.get("mobile", ""),
 
             "Category :",
-            invoice.get(
-                "category",
-                ""
-            )
+            invoice.get("category", "")
         ],
 
         [
             "Address :",
-            invoice.get(
-                "address",
-                ""
-            ),
+            invoice.get("address", ""),
 
             "Patient Type :",
-            invoice.get(
-                "patient_type",
-                ""
-            )
+            invoice.get("patient_type", "")
         ]
 
     ],
@@ -228,10 +204,7 @@ async def generate_pdf(
 
     ]]
 
-    rows = invoice.get(
-        "rows",
-        []
-    )
+    rows = invoice.get("rows", [])
 
     for i, row in enumerate(rows):
 
@@ -239,20 +212,11 @@ async def generate_pdf(
 
             str(i + 1),
 
-            row.get(
-                "treatment",
-                ""
-            ),
+            row.get("treatment", ""),
 
-            row.get(
-                "condition",
-                ""
-            ),
+            row.get("condition", ""),
 
-            row.get(
-                "treatment",
-                ""
-            )
+            row.get("treatment", "")
 
         ])
 
@@ -284,9 +248,7 @@ async def generate_pdf(
 
     ]))
 
-    elements.append(
-        treatment_table
-    )
+    elements.append(treatment_table)
 
     elements.append(
         Spacer(1, 20)
@@ -359,8 +321,6 @@ async def generate_pdf(
 
     ]]
 
-    total = 0
-
     for i, (name, data) in enumerate(
         merged.items()
     ):
@@ -370,8 +330,6 @@ async def generate_pdf(
         rate = data["rate"]
 
         cost = qty * rate
-
-        total += cost
 
         invoice_data.append([
 
@@ -425,6 +383,13 @@ async def generate_pdf(
     # ==========================================
     # TOTALS
     # ==========================================
+    total = float(
+        invoice.get(
+            "amount",
+            0
+        )
+    )
+
     discount = float(
         invoice.get(
             "discount",
@@ -432,7 +397,14 @@ async def generate_pdf(
         )
     )
 
-    net = total - discount
+    paid = float(
+        invoice.get(
+            "paid",
+            0
+        )
+    )
+
+    balance = total - discount - paid
 
     totals = Table([
 
@@ -450,8 +422,14 @@ async def generate_pdf(
 
         [
             "",
-            "Net Amount",
-            str(int(net))
+            "Paid",
+            str(int(paid))
+        ],
+
+        [
+            "",
+            "Balance",
+            str(int(balance))
         ]
 
     ],
