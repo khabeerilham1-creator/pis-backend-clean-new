@@ -2,14 +2,9 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.routes.patients import router as patient_router
-from app.routes.auth import router as auth_router
 
-app = FastAPI(
-    title="HDC Dental API",
-    version="1.0.0"
-)
+app = FastAPI()
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -18,14 +13,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ROUTES
-app.include_router(auth_router)
 app.include_router(patient_router)
 
-# ROOT
 @app.get("/")
 async def root():
 
     return {
-        "message": "HDC Dental API Running Successfully"
+        "message": "API Running"
     }
