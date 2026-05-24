@@ -10,7 +10,6 @@ class LoginData(BaseModel):
 @router.post("/login")
 async def login(data: LoginData):
 
-    # LOGIN CREDENTIALS
     if (
         data.username == "admin"
         and
@@ -19,11 +18,7 @@ async def login(data: LoginData):
 
         return {
             "token": "hdc_admin_token",
-            "role": "admin",
-
-            # OPTIONAL USER INFO
-            "username": "admin",
-            "name": "HDC Admin"
+            "role": "admin"
         }
 
     raise HTTPException(
