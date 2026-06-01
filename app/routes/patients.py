@@ -15,16 +15,44 @@ async def create_patient(
 
     patient_dict = patient.dict()
 
+    # TOTAL PATIENTS
+    total_patients = (
+        db.patients.count_documents({})
+    )
+
+    # AUTO REG NO
+    # 00001
+    # 00002
+    # 00003
+    new_reg_no = str(
+        total_patients + 1
+    ).zfill(5)
+
+    # SAVE INSIDE BIOGRAPHY
+    if "biography" not in patient_dict:
+
+        patient_dict["biography"] = {}
+
+    patient_dict["biography"][
+        "regNo"
+    ] = new_reg_no
+
+    # INSERT
     result = db.patients.insert_one(
         patient_dict
     )
 
     return {
+
         "message":
         "Patient Saved Successfully",
 
         "id":
-        str(result.inserted_id)
+        str(result.inserted_id),
+
+        "reg_no":
+        new_reg_no
+
     }
 
 
@@ -51,7 +79,7 @@ async def delete_patient(
     patient_id: str
 ):
 
-    result = db.patients.delete_one({
+    db.patients.delete_one({
         "_id": ObjectId(patient_id)
     })
 
