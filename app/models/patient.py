@@ -13,3 +13,5 @@ class Patient(BaseModel):
     invoice: List[Dict[str, Any]]
 
     discount: int = 0
+
+    accountLedger: List[Dict[str, Any]] = []
