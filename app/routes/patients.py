@@ -21,9 +21,6 @@ async def create_patient(
     )
 
     # AUTO REG NO
-    # 00001
-    # 00002
-    # 00003
     new_reg_no = str(
         total_patients + 1
     ).zfill(5)
@@ -71,6 +68,28 @@ async def get_patients():
         )
 
     return patients
+
+
+# UPDATE PATIENT
+@router.put("/patients/{patient_id}")
+async def update_patient(
+    patient_id: str,
+    patient: dict
+):
+
+    db.patients.update_one(
+        {
+            "_id": ObjectId(patient_id)
+        },
+        {
+            "$set": patient
+        }
+    )
+
+    return {
+        "message":
+        "Patient Updated Successfully"
+    }
 
 
 # DELETE PATIENT
