@@ -228,7 +228,21 @@ async def get_stats():
     # Sum all invoice costs across all patients
     pipeline = [
         {"$unwind": {"path": "$invoice", "preserveNullAndEmptyArrays": True}},
-        {"$group": {"_id": None, "total": {"$sum": {"$toDouble": "$invoice.cost"}}}},
+        {
+            "$group": {
+                "_id": None,
+                "total": {
+                    "$sum": {
+                        "$convert": {
+                            "input": "$invoice.cost",
+                            "to": "double",
+                            "onError": 0,
+                            "onNull": 0,
+                        }
+                    }
+                },
+            }
+        },
     ]
     revenue_result = list(db.patients.aggregate(pipeline))
     total_revenue  = revenue_result[0]["total"] if revenue_result else 0

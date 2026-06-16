@@ -1,30 +1,39 @@
-from pymongo import MongoClient
-from dotenv import load_dotenv
 import os
+
+from dotenv import load_dotenv
+from pymongo import MongoClient
 
 load_dotenv()
 
-APP_MODE = os.getenv("APP_MODE", "real")
-
-REAL_DB = os.getenv("MONGO_URL")
-
-if not REAL_DB:
-    REAL_DB = "mongodb://localhost:27017"
-
-DEMO_DB = os.getenv("DEMO_MONGO_URL")
+APP_MODE = os.getenv("APP_MODE", "real").lower()
+REAL_DB_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+DEMO_DB_URL = os.getenv("DEMO_MONGO_URL", REAL_DB_URL)
 
 if APP_MODE == "demo":
-
-    print("🔥 DEMO DATABASE ACTIVE")
-
-    client = MongoClient(DEMO_DB)
-
-    db = client["smart_clinic_demo"]
-
+    mongo_url = DEMO_DB_URL
+    database_name = os.getenv("DEMO_DB_NAME", "smart_clinic_demo")
+    print("DEMO DATABASE ACTIVE")
 else:
+    mongo_url = REAL_DB_URL
+    database_name = os.getenv("DB_NAME", "pis")
+    print("REAL DATABASE ACTIVE")
 
-    print("✅ REAL DATABASE ACTIVE")
+client = MongoClient(
+    mongo_url,
+    serverSelectionTimeoutMS=5000,
+)
 
-    client = MongoClient(REAL_DB)
+db = client[database_name]
 
-    db = client["pis"]
+
+def ensure_indexes():
+    try:
+        db.patients.create_index("biography.regNo", unique=True, sparse=True)
+        db.patients.create_index("biography.patientName")
+        db.patients.create_index("biography.mobileNumber")
+        db.patients.create_index("createdAt")
+    except Exception as exc:
+        print(f"Database index setup skipped: {exc}")
+
+
+ensure_indexes()
