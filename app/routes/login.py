@@ -18,25 +18,51 @@ class LoginData(BaseModel):
 
 @router.post("/login")
 async def login(data: LoginData):
-    admin_username = os.getenv("ADMIN_USERNAME", "admin")
-    admin_password = os.getenv("ADMIN_PASSWORD", "admin123")
-    admin_name = os.getenv("ADMIN_NAME", "HDC Admin")
+    users = [
+        {
+            "username": os.getenv("ADMIN_USERNAME", "admin"),
+            "password": os.getenv("ADMIN_PASSWORD", "admin123"),
+            "name": os.getenv("ADMIN_NAME", "HDC Admin"),
+            "role": "admin",
+        },
+        {
+            "username": os.getenv("RECEPTIONIST_USERNAME", "receptionist"),
+            "password": os.getenv("RECEPTIONIST_PASSWORD", "reception123"),
+            "name": os.getenv("RECEPTIONIST_NAME", "Reception Desk"),
+            "role": "receptionist",
+        },
+        {
+            "username": os.getenv("DOCTOR_USERNAME", "doctor"),
+            "password": os.getenv("DOCTOR_PASSWORD", "doctor123"),
+            "name": os.getenv("DOCTOR_NAME", "Dr Zaffar Iqbal"),
+            "role": "doctor",
+        },
+    ]
 
-    if data.username == admin_username and data.password == admin_password:
+    matched_user = next(
+        (
+            user
+            for user in users
+            if data.username == user["username"] and data.password == user["password"]
+        ),
+        None,
+    )
+
+    if matched_user:
         token = create_access_token(
             {
-                "sub": admin_username,
-                "username": admin_username,
-                "name": admin_name,
-                "role": "admin",
+                "sub": matched_user["username"],
+                "username": matched_user["username"],
+                "name": matched_user["name"],
+                "role": matched_user["role"],
             }
         )
 
         return {
             "token": token,
-            "role": "admin",
-            "username": admin_username,
-            "name": admin_name,
+            "role": matched_user["role"],
+            "username": matched_user["username"],
+            "name": matched_user["name"],
         }
 
     raise HTTPException(status_code=401, detail="Invalid credentials")
