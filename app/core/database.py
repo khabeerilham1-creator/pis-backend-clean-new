@@ -6,7 +6,11 @@ from pymongo import MongoClient
 load_dotenv()
 
 APP_MODE = os.getenv("APP_MODE", "real").lower()
-REAL_DB_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
+REAL_DB_URL = (
+    os.getenv("MONGO_URL")
+    or os.getenv("DEMO_MONGO_URL")
+    or "mongodb://localhost:27017"
+)
 DEMO_DB_URL = os.getenv("DEMO_MONGO_URL", REAL_DB_URL)
 
 if APP_MODE == "demo":

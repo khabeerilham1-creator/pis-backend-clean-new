@@ -1,26 +1,25 @@
-from fastapi import APIRouter, HTTPException, Query
+from datetime import date, datetime
+from typing import Optional
+
 from bson import ObjectId
 from bson.errors import InvalidId
-from datetime import datetime, date
-from typing import Optional
+from fastapi import APIRouter, HTTPException, Query
 from pymongo.errors import DuplicateKeyError, PyMongoError
-from app.models.patient import Patient
+
 from app.core.database import db
+from app.models.patient import Patient
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
 
-# ── Helpers ────────────────────────────────────────────────────────────────
-
 def fix_id(doc: dict) -> dict:
-    """Convert MongoDB _id ObjectId → string so JSON can serialise it."""
+    """Convert MongoDB _id ObjectId to string so JSON can serialise it."""
     if doc and "_id" in doc:
         doc["_id"] = str(doc["_id"])
     return doc
 
 
 def valid_object_id(pid: str) -> ObjectId:
-    """Validate and return ObjectId, or raise 400."""
     try:
         return ObjectId(pid)
     except (InvalidId, Exception):
@@ -28,15 +27,73 @@ def valid_object_id(pid: str) -> ObjectId:
 
 
 def patient_to_dict(patient: Patient) -> dict:
-    """Support both Pydantic v1 and v2 payload conversion."""
     if hasattr(patient, "model_dump"):
         return patient.model_dump()
 
     return patient.dict()
 
 
+def iso_value(value):
+    if isinstance(value, datetime):
+        return value.isoformat()
+
+    return value
+
+
+def normalize_patient(doc: dict) -> dict:
+    """Return old flat records and current records in the current frontend shape."""
+    if not doc:
+        return doc
+
+    biography = dict(doc.get("biography") or {})
+    legacy_bio_fields = {
+        "regNo": ("reg_no", "registration_no"),
+        "patientName": ("name", "patient_name"),
+        "mobileNumber": ("mobile_number", "phone"),
+        "category": ("category",),
+        "patientType": ("purpose_of_visit", "patient_type"),
+        "age": ("age",),
+        "email": ("email",),
+        "address": ("address",),
+        "gender": ("gender",),
+        "occupation": ("occupation",),
+        "date": ("date",),
+        "referredBy": ("referred_by",),
+        "emergencyNumber": ("emergency_number",),
+        "ptclNumber": ("ptcl_number",),
+    }
+
+    for target, legacy_keys in legacy_bio_fields.items():
+        if biography.get(target):
+            continue
+
+        for legacy_key in legacy_keys:
+            if doc.get(legacy_key) not in (None, ""):
+                biography[target] = str(doc.get(legacy_key))
+                break
+
+    doc["biography"] = biography
+    doc.setdefault("checkup", {})
+    doc.setdefault("plannedSequence", [])
+    doc.setdefault("invoice", [])
+    doc.setdefault("discount", 0)
+    doc.setdefault("discountPercent", 0)
+    doc.setdefault("accountLedger", [])
+    doc.setdefault("doctorShare", [])
+    doc.setdefault("labExpenses", [])
+    doc.setdefault("dentalMaterials", [])
+    doc.setdefault("toothStates", {})
+    doc.setdefault("toothNotes", "")
+
+    if not doc.get("createdAt") and doc.get("created_at"):
+        doc["createdAt"] = iso_value(doc.get("created_at"))
+    if not doc.get("updatedAt"):
+        doc["updatedAt"] = iso_value(doc.get("updated_at") or doc.get("createdAt") or doc.get("created_at"))
+
+    return fix_id(doc)
+
+
 def next_reg_no() -> str:
-    """Return the next reg no from the highest saved numeric reg no."""
     max_number = 0
 
     for doc in db.patients.find({}, {"biography.regNo": 1, "reg_no": 1}):
@@ -50,14 +107,8 @@ def next_reg_no() -> str:
     return str(max_number + 1).zfill(5)
 
 
-# ── CREATE ─────────────────────────────────────────────────────────────────
-
 @router.post("/", status_code=201)
 async def create_patient(patient: Patient):
-    """
-    Save a new patient.
-    Auto-generates a zero-padded Reg No (e.g. 00042).
-    """
     last_duplicate = None
 
     for attempt in range(5):
@@ -81,8 +132,8 @@ async def create_patient(patient: Patient):
 
             return {
                 "message": "Patient saved successfully.",
-                "id":      str(result.inserted_id),
-                "reg_no":  new_reg_no,
+                "id": str(result.inserted_id),
+                "reg_no": new_reg_no,
             }
         except DuplicateKeyError as exc:
             last_duplicate = exc
@@ -99,20 +150,14 @@ async def create_patient(patient: Patient):
     )
 
 
-# ── GET ALL (with search + pagination) ────────────────────────────────────
-
 @router.get("/")
 async def get_patients(
     search: Optional[str] = Query(None, description="Search by name, phone, or reg no"),
-    page:   int           = Query(1, ge=1,  description="Page number"),
-    limit:  int           = Query(20, ge=1, le=100, description="Results per page"),
-    sort:   str           = Query("createdAt", description="Sort field"),
-    order:  int           = Query(-1, description="1=asc, -1=desc"),
+    page: int = Query(1, ge=1, description="Page number"),
+    limit: int = Query(20, ge=1, le=100, description="Results per page"),
+    sort: str = Query("createdAt", description="Sort field"),
+    order: int = Query(-1, description="1=asc, -1=desc"),
 ):
-    """
-    Return all patients, with optional search and pagination.
-    Search matches patient name, mobile number, or reg no.
-    """
     query = {}
 
     if search and search.strip():
@@ -120,12 +165,14 @@ async def get_patients(
         query["$or"] = [
             {"biography.patientName": {"$regex": s, "$options": "i"}},
             {"biography.mobileNumber": {"$regex": s, "$options": "i"}},
-            {"biography.regNo":        {"$regex": s, "$options": "i"}},
+            {"biography.regNo": {"$regex": s, "$options": "i"}},
+            {"name": {"$regex": s, "$options": "i"}},
+            {"mobile_number": {"$regex": s, "$options": "i"}},
+            {"reg_no": {"$regex": s, "$options": "i"}},
         ]
 
-    skip  = (page - 1) * limit
+    skip = (page - 1) * limit
     total = db.patients.count_documents(query)
-
     patients = list(
         db.patients
         .find(query)
@@ -134,88 +181,66 @@ async def get_patients(
         .limit(limit)
     )
 
-    for p in patients:
-        fix_id(p)
-
     return {
-        "patients":   patients,
-        "total":      total,
-        "page":       page,
+        "patients": [normalize_patient(patient) for patient in patients],
+        "total": total,
+        "page": page,
         "totalPages": (total + limit - 1) // limit,
     }
 
 
-# ── GET ONE ────────────────────────────────────────────────────────────────
-
 @router.get("/{patient_id}")
 async def get_patient(patient_id: str):
-    """Return a single patient by MongoDB _id."""
     oid = valid_object_id(patient_id)
     patient = db.patients.find_one({"_id": oid})
 
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found.")
 
-    return fix_id(patient)
+    return normalize_patient(patient)
 
-
-# ── GET BY REG NO ──────────────────────────────────────────────────────────
 
 @router.get("/reg/{reg_no}")
 async def get_patient_by_reg(reg_no: str):
-    """Find a patient by their Reg No (biography.regNo field)."""
-    patient = db.patients.find_one({"biography.regNo": reg_no.zfill(5)})
+    padded_reg_no = reg_no.zfill(5)
+    patient = db.patients.find_one(
+        {
+            "$or": [
+                {"biography.regNo": padded_reg_no},
+                {"reg_no": padded_reg_no},
+            ]
+        }
+    )
 
     if not patient:
         raise HTTPException(status_code=404, detail=f"Patient with Reg No {reg_no} not found.")
 
-    return fix_id(patient)
+    return normalize_patient(patient)
 
-
-# ── UPDATE ─────────────────────────────────────────────────────────────────
 
 @router.put("/{patient_id}")
 async def update_patient(patient_id: str, patient: dict):
-    """
-    Full or partial update of a patient document.
-    Pass only the fields you want to change.
-    """
     oid = valid_object_id(patient_id)
 
-    # Prevent overwriting _id or regNo by accident
-    patient.pop("_id",    None)
+    patient.pop("_id", None)
     patient.pop("reg_no", None)
-
-    # Always update timestamp
     patient["updatedAt"] = datetime.utcnow().isoformat()
 
-    result = db.patients.update_one(
-        {"_id": oid},
-        {"$set": patient}
-    )
+    result = db.patients.update_one({"_id": oid}, {"$set": patient})
 
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Patient not found.")
 
     return {
-        "message":  "Patient updated successfully.",
+        "message": "Patient updated successfully.",
         "modified": result.modified_count,
     }
 
 
-# ── UPDATE TOOTH CHART ONLY ────────────────────────────────────────────────
-
 @router.patch("/{patient_id}/tooth-chart")
 async def update_tooth_chart(patient_id: str, body: dict):
-    """
-    Update just the toothStates and toothNotes for a patient.
-    Body: { "toothStates": {"3": "crown", "11": "cavity"}, "toothNotes": "..." }
-    """
     oid = valid_object_id(patient_id)
-
-    update_fields = {
-        "updatedAt": datetime.utcnow().isoformat(),
-    }
+    update_fields = {"updatedAt": datetime.utcnow().isoformat()}
 
     if "toothStates" in body:
         update_fields["toothStates"] = body["toothStates"]
@@ -230,13 +255,9 @@ async def update_tooth_chart(patient_id: str, body: dict):
     return {"message": "Tooth chart updated."}
 
 
-# ── DELETE ─────────────────────────────────────────────────────────────────
-
 @router.delete("/{patient_id}")
 async def delete_patient(patient_id: str):
-    """Permanently delete a patient record."""
     oid = valid_object_id(patient_id)
-
     result = db.patients.delete_one({"_id": oid})
 
     if result.deleted_count == 0:
@@ -245,27 +266,19 @@ async def delete_patient(patient_id: str):
     return {"message": "Patient deleted successfully."}
 
 
-# ── STATS ──────────────────────────────────────────────────────────────────
-
 @router.get("/meta/stats")
 async def get_stats():
-    """
-    Dashboard stats:
-    - total patients
-    - patients added today
-    - total invoice revenue
-    - tooth condition summary
-    """
-    today_str = date.today().isoformat()  # e.g. "2025-06-15"
-
+    today_str = date.today().isoformat()
     total_patients = db.patients.count_documents({})
+    today_patients = db.patients.count_documents(
+        {
+            "$or": [
+                {"createdAt": {"$regex": f"^{today_str}"}},
+                {"date": today_str},
+            ]
+        }
+    )
 
-    # Count patients created today (createdAt starts with today's date)
-    today_patients = db.patients.count_documents({
-        "createdAt": {"$regex": f"^{today_str}"}
-    })
-
-    # Sum all invoice costs across all patients
     pipeline = [
         {"$unwind": {"path": "$invoice", "preserveNullAndEmptyArrays": True}},
         {
@@ -285,11 +298,10 @@ async def get_stats():
         },
     ]
     revenue_result = list(db.patients.aggregate(pipeline))
-    total_revenue  = revenue_result[0]["total"] if revenue_result else 0
+    total_revenue = revenue_result[0]["total"] if revenue_result else 0
 
-    # Tooth condition counts across all patients
     tooth_pipeline = [
-        {"$project": {"toothStates": {"$objectToArray": "$toothStates"}}},
+        {"$project": {"toothStates": {"$objectToArray": {"$ifNull": ["$toothStates", {}]}}}},
         {"$unwind": "$toothStates"},
         {"$group": {"_id": "$toothStates.v", "count": {"$sum": 1}}},
     ]
@@ -302,29 +314,22 @@ async def get_stats():
     return {
         "totalPatients": total_patients,
         "todayPatients": today_patients,
-        "totalRevenue":  round(total_revenue, 2),
+        "totalRevenue": round(total_revenue, 2),
         "toothConditions": tooth_counts,
     }
 
 
-# ── ACCOUNT LEDGER entries ─────────────────────────────────────────────────
-
 @router.post("/{patient_id}/ledger")
 async def add_ledger_entry(patient_id: str, entry: dict):
-    """
-    Push a payment/ledger entry to a patient's accountLedger array.
-    Entry example: { "date": "2025-06-15", "description": "Crown payment", "amount": 15000, "type": "credit" }
-    """
     oid = valid_object_id(patient_id)
-
     entry["timestamp"] = datetime.utcnow().isoformat()
 
     result = db.patients.update_one(
         {"_id": oid},
         {
             "$push": {"accountLedger": entry},
-            "$set":  {"updatedAt": datetime.utcnow().isoformat()},
-        }
+            "$set": {"updatedAt": datetime.utcnow().isoformat()},
+        },
     )
 
     if result.matched_count == 0:
