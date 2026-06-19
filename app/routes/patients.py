@@ -3,6 +3,7 @@ from bson import ObjectId
 from bson.errors import InvalidId
 from datetime import datetime, date
 from typing import Optional
+from pymongo.errors import DuplicateKeyError, PyMongoError
 from app.models.patient import Patient
 from app.core.database import db
 
@@ -26,6 +27,29 @@ def valid_object_id(pid: str) -> ObjectId:
         raise HTTPException(status_code=400, detail="Invalid patient ID format.")
 
 
+def patient_to_dict(patient: Patient) -> dict:
+    """Support both Pydantic v1 and v2 payload conversion."""
+    if hasattr(patient, "model_dump"):
+        return patient.model_dump()
+
+    return patient.dict()
+
+
+def next_reg_no() -> str:
+    """Return the next reg no from the highest saved numeric reg no."""
+    max_number = 0
+
+    for doc in db.patients.find({}, {"biography.regNo": 1, "reg_no": 1}):
+        biography = doc.get("biography") or {}
+        raw_reg_no = biography.get("regNo") or doc.get("reg_no") or ""
+        digits = "".join(ch for ch in str(raw_reg_no) if ch.isdigit())
+
+        if digits:
+            max_number = max(max_number, int(digits))
+
+    return str(max_number + 1).zfill(5)
+
+
 # ── CREATE ─────────────────────────────────────────────────────────────────
 
 @router.post("/", status_code=201)
@@ -34,29 +58,45 @@ async def create_patient(patient: Patient):
     Save a new patient.
     Auto-generates a zero-padded Reg No (e.g. 00042).
     """
-    patient_dict = patient.dict()
+    last_duplicate = None
 
-    # Auto Reg No — total patients + 1, padded to 5 digits
-    total = db.patients.count_documents({})
-    new_reg_no = str(total + 1).zfill(5)
+    for attempt in range(5):
+        try:
+            patient_dict = patient_to_dict(patient)
+            new_reg_no = next_reg_no()
 
-    # Ensure biography sub-document exists
-    if "biography" not in patient_dict or patient_dict["biography"] is None:
-        patient_dict["biography"] = {}
+            if attempt:
+                new_reg_no = str(int(new_reg_no) + attempt).zfill(5)
 
-    patient_dict["biography"]["regNo"] = new_reg_no
+            if "biography" not in patient_dict or patient_dict["biography"] is None:
+                patient_dict["biography"] = {}
 
-    # Timestamps
-    patient_dict["createdAt"] = datetime.utcnow().isoformat()
-    patient_dict["updatedAt"] = datetime.utcnow().isoformat()
+            patient_dict["biography"]["regNo"] = new_reg_no
 
-    result = db.patients.insert_one(patient_dict)
+            now = datetime.utcnow().isoformat()
+            patient_dict["createdAt"] = now
+            patient_dict["updatedAt"] = now
 
-    return {
-        "message": "Patient saved successfully.",
-        "id":      str(result.inserted_id),
-        "reg_no":  new_reg_no,
-    }
+            result = db.patients.insert_one(patient_dict)
+
+            return {
+                "message": "Patient saved successfully.",
+                "id":      str(result.inserted_id),
+                "reg_no":  new_reg_no,
+            }
+        except DuplicateKeyError as exc:
+            last_duplicate = exc
+            continue
+        except PyMongoError as exc:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Patient save failed. Check MongoDB connection and patient data. {exc}",
+            )
+
+    raise HTTPException(
+        status_code=409,
+        detail=f"Could not generate a unique registration number. {last_duplicate}",
+    )
 
 
 # ── GET ALL (with search + pagination) ────────────────────────────────────

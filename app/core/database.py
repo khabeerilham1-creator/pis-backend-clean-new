@@ -32,6 +32,11 @@ def ensure_indexes():
         db.patients.create_index("biography.patientName")
         db.patients.create_index("biography.mobileNumber")
         db.patients.create_index("createdAt")
+        db.inventory.create_index("productName")
+        db.inventory.create_index("date")
+        db.expenses.create_index("category")
+        db.expenses.create_index("date")
+        db.expenses.create_index("expenseName")
     except Exception as exc:
         print(f"Database index setup skipped: {exc}")
 
