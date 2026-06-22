@@ -13,6 +13,7 @@ class Patient(BaseModel):
     accountLedger: List[Dict[str, Any]] = Field(default_factory=list)
     doctorShare: List[Dict[str, Any]] = Field(default_factory=list)
     labExpenses: List[Dict[str, Any]] = Field(default_factory=list)
+    labRecords: List[Dict[str, Any]] = Field(default_factory=list)
     dentalMaterials: List[Dict[str, Any]] = Field(default_factory=list)
     toothStates: Dict[str, Any] = Field(default_factory=dict)
     toothNotes: str = ""

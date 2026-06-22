@@ -81,6 +81,7 @@ def normalize_patient(doc: dict) -> dict:
     doc.setdefault("accountLedger", [])
     doc.setdefault("doctorShare", [])
     doc.setdefault("labExpenses", [])
+    doc.setdefault("labRecords", [])
     doc.setdefault("dentalMaterials", [])
     doc.setdefault("toothStates", {})
     doc.setdefault("toothNotes", "")
