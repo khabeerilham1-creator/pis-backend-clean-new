@@ -11,6 +11,17 @@ from app.models.patient import Patient
 
 router = APIRouter(prefix="/patients", tags=["patients"])
 
+SHIFT_DOCTORS = {
+    "morning": {
+        "shiftName": "Morning Shift",
+        "doctorName": "Dr Tufyl",
+    },
+    "evening": {
+        "shiftName": "Evening Shift",
+        "doctorName": "Dr Abdur Rehman",
+    },
+}
+
 
 def fix_id(doc: dict) -> dict:
     """Convert MongoDB _id ObjectId to string so JSON can serialise it."""
@@ -38,6 +49,53 @@ def iso_value(value):
         return value.isoformat()
 
     return value
+
+
+def normalize_text(value) -> str:
+    return " ".join(str(value or "").strip().lower().split())
+
+
+def infer_shift_id(doc: dict, biography: dict) -> str:
+    explicit_shift = (
+        doc.get("shiftId")
+        or doc.get("shift")
+        or biography.get("shiftId")
+        or biography.get("shift")
+        or biography.get("shiftName")
+    )
+    clean_shift = normalize_text(explicit_shift)
+
+    for shift_id, details in SHIFT_DOCTORS.items():
+        if clean_shift in {shift_id, normalize_text(details["shiftName"])}:
+            return shift_id
+
+    doctor_name = normalize_text(biography.get("doctorName"))
+
+    for shift_id, details in SHIFT_DOCTORS.items():
+        if doctor_name == normalize_text(details["doctorName"]):
+            return shift_id
+
+    return ""
+
+
+def build_shift_query(shift: Optional[str]) -> Optional[dict]:
+    shift_id = normalize_text(shift)
+    details = SHIFT_DOCTORS.get(shift_id)
+
+    if not details:
+        return None
+
+    return {
+        "$or": [
+            {"shiftId": shift_id},
+            {"shift": shift_id},
+            {"biography.shiftId": shift_id},
+            {"biography.shift": shift_id},
+            {"shiftName": {"$regex": details["shiftName"], "$options": "i"}},
+            {"biography.shiftName": {"$regex": details["shiftName"], "$options": "i"}},
+            {"biography.doctorName": {"$regex": f"^{details['doctorName']}$", "$options": "i"}},
+        ]
+    }
 
 
 def normalize_patient(doc: dict) -> dict:
@@ -73,6 +131,16 @@ def normalize_patient(doc: dict) -> dict:
                 break
 
     doc["biography"] = biography
+    shift_id = infer_shift_id(doc, biography)
+
+    if shift_id:
+        shift_details = SHIFT_DOCTORS[shift_id]
+        doc["shiftId"] = doc.get("shiftId") or shift_id
+        doc["shiftName"] = doc.get("shiftName") or shift_details["shiftName"]
+        biography["shiftId"] = biography.get("shiftId") or shift_id
+        biography["shiftName"] = biography.get("shiftName") or shift_details["shiftName"]
+        biography["doctorName"] = biography.get("doctorName") or shift_details["doctorName"]
+
     doc.setdefault("checkup", {})
     doc.setdefault("plannedSequence", [])
     doc.setdefault("invoice", [])
@@ -154,23 +222,40 @@ async def create_patient(patient: Patient):
 @router.get("/")
 async def get_patients(
     search: Optional[str] = Query(None, description="Search by name, phone, or reg no"),
+    shift: Optional[str] = Query(None, description="Filter by clinic shift"),
     page: int = Query(1, ge=1, description="Page number"),
     limit: int = Query(20, ge=1, le=100, description="Results per page"),
     sort: str = Query("createdAt", description="Sort field"),
     order: int = Query(-1, description="1=asc, -1=desc"),
 ):
-    query = {}
+    filters = []
 
     if search and search.strip():
         s = search.strip()
-        query["$or"] = [
-            {"biography.patientName": {"$regex": s, "$options": "i"}},
-            {"biography.mobileNumber": {"$regex": s, "$options": "i"}},
-            {"biography.regNo": {"$regex": s, "$options": "i"}},
-            {"name": {"$regex": s, "$options": "i"}},
-            {"mobile_number": {"$regex": s, "$options": "i"}},
-            {"reg_no": {"$regex": s, "$options": "i"}},
-        ]
+        filters.append(
+            {
+                "$or": [
+                    {"biography.patientName": {"$regex": s, "$options": "i"}},
+                    {"biography.mobileNumber": {"$regex": s, "$options": "i"}},
+                    {"biography.regNo": {"$regex": s, "$options": "i"}},
+                    {"name": {"$regex": s, "$options": "i"}},
+                    {"mobile_number": {"$regex": s, "$options": "i"}},
+                    {"reg_no": {"$regex": s, "$options": "i"}},
+                ]
+            }
+        )
+
+    shift_query = build_shift_query(shift)
+
+    if shift_query:
+        filters.append(shift_query)
+
+    if len(filters) == 1:
+        query = filters[0]
+    elif filters:
+        query = {"$and": filters}
+    else:
+        query = {}
 
     skip = (page - 1) * limit
     total = db.patients.count_documents(query)

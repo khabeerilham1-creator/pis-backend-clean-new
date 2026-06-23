@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 
 
 class Patient(BaseModel):
+    shiftId: str = ""
+    shiftName: str = ""
     biography: Dict[str, Any] = Field(default_factory=dict)
     checkup: Dict[str, Any] = Field(default_factory=dict)
     plannedSequence: List[Dict[str, Any]] = Field(default_factory=list)
