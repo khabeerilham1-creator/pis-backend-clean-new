@@ -9,6 +9,7 @@ class Patient(BaseModel):
     biography: Dict[str, Any] = Field(default_factory=dict)
     checkup: Dict[str, Any] = Field(default_factory=dict)
     plannedSequence: List[Dict[str, Any]] = Field(default_factory=list)
+    invoices: List[Dict[str, Any]] = Field(default_factory=list)
     invoice: List[Dict[str, Any]] = Field(default_factory=list)
     discount: int = 0
     discountPercent: float = 0

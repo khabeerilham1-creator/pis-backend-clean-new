@@ -22,20 +22,20 @@ async def login(data: LoginData):
         {
             "username": "morning",
             "password": os.getenv("MORNING_SHIFT_PASSWORD", "12345"),
-            "name": "Dr Tufyl",
+            "name": "Dr 1",
             "role": "admin",
             "shiftId": "morning",
             "shiftName": "Morning Shift",
-            "doctorName": "Dr Tufyl",
+            "doctorName": "Dr 1",
         },
         {
             "username": "evening",
             "password": os.getenv("EVENING_SHIFT_PASSWORD", "6789"),
-            "name": "Dr Abdur Rehman",
+            "name": "Dr 2",
             "role": "admin",
             "shiftId": "evening",
             "shiftName": "Evening Shift",
-            "doctorName": "Dr Abdur Rehman",
+            "doctorName": "Dr 2",
         },
     ]
     users = [

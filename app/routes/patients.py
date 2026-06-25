@@ -14,11 +14,13 @@ router = APIRouter(prefix="/patients", tags=["patients"])
 SHIFT_DOCTORS = {
     "morning": {
         "shiftName": "Morning Shift",
-        "doctorName": "Dr Tufyl",
+        "doctorName": "Dr 1",
+        "doctorAliases": ["Dr Tufyl"],
     },
     "evening": {
         "shiftName": "Evening Shift",
-        "doctorName": "Dr Abdur Rehman",
+        "doctorName": "Dr 2",
+        "doctorAliases": ["Dr Abdur Rehman"],
     },
 }
 
@@ -72,7 +74,9 @@ def infer_shift_id(doc: dict, biography: dict) -> str:
     doctor_name = normalize_text(biography.get("doctorName"))
 
     for shift_id, details in SHIFT_DOCTORS.items():
-        if doctor_name == normalize_text(details["doctorName"]):
+        doctor_names = [details["doctorName"], *details.get("doctorAliases", [])]
+
+        if doctor_name in {normalize_text(name) for name in doctor_names}:
             return shift_id
 
     return ""
@@ -93,7 +97,11 @@ def build_shift_query(shift: Optional[str]) -> Optional[dict]:
             {"biography.shift": shift_id},
             {"shiftName": {"$regex": details["shiftName"], "$options": "i"}},
             {"biography.shiftName": {"$regex": details["shiftName"], "$options": "i"}},
-            {"biography.doctorName": {"$regex": f"^{details['doctorName']}$", "$options": "i"}},
+            {
+                "biography.doctorName": {
+                    "$in": [details["doctorName"], *details.get("doctorAliases", [])]
+                }
+            },
         ]
     }
 
@@ -143,6 +151,7 @@ def normalize_patient(doc: dict) -> dict:
 
     doc.setdefault("checkup", {})
     doc.setdefault("plannedSequence", [])
+    doc.setdefault("invoices", [])
     doc.setdefault("invoice", [])
     doc.setdefault("discount", 0)
     doc.setdefault("discountPercent", 0)
