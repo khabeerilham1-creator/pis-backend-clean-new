@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from uuid import uuid4
 from typing import Optional
 
 from bson import ObjectId
@@ -417,6 +418,7 @@ async def get_stats():
 @router.post("/{patient_id}/ledger")
 async def add_ledger_entry(patient_id: str, entry: dict):
     oid = valid_object_id(patient_id)
+    entry["id"] = entry.get("id") or f"payment-{uuid4().hex}"
     entry["timestamp"] = datetime.utcnow().isoformat()
 
     result = db.patients.update_one(
@@ -430,4 +432,75 @@ async def add_ledger_entry(patient_id: str, entry: dict):
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Patient not found.")
 
-    return {"message": "Ledger entry added."}
+    return {"message": "Ledger entry added.", "entry": entry}
+
+
+def find_ledger_index(entries: list, entry_id: str) -> int:
+    if entry_id.isdigit():
+        index = int(entry_id)
+
+        if 0 <= index < len(entries):
+            return index
+
+    for index, entry in enumerate(entries):
+        if str(entry.get("id") or "") == entry_id:
+            return index
+
+    raise HTTPException(status_code=404, detail="Ledger entry not found.")
+
+
+@router.put("/{patient_id}/ledger/{entry_id}")
+async def update_ledger_entry(patient_id: str, entry_id: str, entry: dict):
+    oid = valid_object_id(patient_id)
+    patient = db.patients.find_one({"_id": oid}, {"accountLedger": 1})
+
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found.")
+
+    entries = list(patient.get("accountLedger") or [])
+    index = find_ledger_index(entries, entry_id)
+    current = entries[index]
+    updated_entry = {
+        **current,
+        **entry,
+        "id": current.get("id") or entry.get("id") or f"payment-{uuid4().hex}",
+        "updatedAt": datetime.utcnow().isoformat(),
+    }
+    entries[index] = updated_entry
+
+    db.patients.update_one(
+        {"_id": oid},
+        {
+            "$set": {
+                "accountLedger": entries,
+                "updatedAt": datetime.utcnow().isoformat(),
+            }
+        },
+    )
+
+    return {"message": "Ledger entry updated.", "entry": updated_entry}
+
+
+@router.delete("/{patient_id}/ledger/{entry_id}")
+async def delete_ledger_entry(patient_id: str, entry_id: str):
+    oid = valid_object_id(patient_id)
+    patient = db.patients.find_one({"_id": oid}, {"accountLedger": 1})
+
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found.")
+
+    entries = list(patient.get("accountLedger") or [])
+    index = find_ledger_index(entries, entry_id)
+    deleted_entry = entries.pop(index)
+
+    db.patients.update_one(
+        {"_id": oid},
+        {
+            "$set": {
+                "accountLedger": entries,
+                "updatedAt": datetime.utcnow().isoformat(),
+            }
+        },
+    )
+
+    return {"message": "Ledger entry deleted.", "entry": deleted_entry}

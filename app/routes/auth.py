@@ -12,9 +12,9 @@ async def login(data: LoginData):
 
     # LOGIN CREDENTIALS
     if (
-        data.username == "admin"
+        data.username == "hdc1122"
         and
-        data.password == "admin123"
+        data.password == "drzaffar"
     ):
 
         return {
@@ -22,7 +22,7 @@ async def login(data: LoginData):
             "role": "admin",
 
             # OPTIONAL USER INFO
-            "username": "admin",
+            "username": "hdc1122",
             "name": "HDC Admin"
         }
 

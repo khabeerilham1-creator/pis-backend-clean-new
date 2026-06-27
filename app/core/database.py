@@ -41,6 +41,14 @@ def ensure_indexes():
         db.expenses.create_index("category")
         db.expenses.create_index("date")
         db.expenses.create_index("expenseName")
+        db.expenses.create_index("description")
+        db.expenses.create_index("shop")
+        db.expenses.create_index("vendor")
+        db.lab_payments.create_index("labName")
+        db.lab_payments.create_index("date")
+        db.dentist_revenue.create_index("dentistName")
+        db.dentist_revenue.create_index("patientId")
+        db.dentist_revenue.create_index("updatedAt")
     except Exception as exc:
         print(f"Database index setup skipped: {exc}")
 

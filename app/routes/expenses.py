@@ -7,9 +7,16 @@ from fastapi import APIRouter, HTTPException, Query
 from pymongo.errors import PyMongoError
 
 from app.core.database import db
-from app.models.expense import Expense
-
 router = APIRouter(prefix="/expenses", tags=["expenses"])
+
+VALID_CATEGORIES = {
+    "administration",
+    "team",
+    "dental-material",
+    "dental-implants",
+    "clinical",
+    "home",
+}
 
 
 def fix_id(doc: dict) -> dict:
@@ -25,11 +32,42 @@ def valid_object_id(expense_id: str) -> ObjectId:
         raise HTTPException(status_code=400, detail="Invalid expense ID.")
 
 
-def expense_to_dict(expense: Expense) -> dict:
-    if hasattr(expense, "model_dump"):
-        return expense.model_dump()
+def clean_expense(data: dict) -> dict:
+    expense = dict(data or {})
+    expense.pop("_id", None)
 
-    return expense.dict()
+    category = expense.get("category") or "administration"
+    expense["category"] = category if category in VALID_CATEGORIES else "administration"
+
+    for number_field in [
+        "amount",
+        "paid",
+        "basicSalary",
+        "allocation",
+        "deduction",
+        "netSalary",
+        "qty",
+        "ratePerUnit",
+        "ratePerImplant",
+        "totalAmount",
+    ]:
+        if number_field in expense:
+            expense[number_field] = float(expense.get(number_field) or 0)
+
+    if "payments" in expense:
+        expense["payments"] = [
+            {
+                **payment,
+                "amount": float(payment.get("amount") or 0),
+            }
+            for payment in expense.get("payments", [])
+            if isinstance(payment, dict)
+        ]
+
+    if not expense.get("date") and not expense.get("dueDate") and not expense.get("joiningDate"):
+        expense["date"] = datetime.utcnow().date().isoformat()
+
+    return expense
 
 
 @router.get("/")
@@ -46,7 +84,16 @@ async def get_expenses(
         query["category"] = category
 
     if search and search.strip():
-        query["expenseName"] = {"$regex": search.strip(), "$options": "i"}
+        s = search.strip()
+        query["$or"] = [
+            {"expenseName": {"$regex": s, "$options": "i"}},
+            {"description": {"$regex": s, "$options": "i"}},
+            {"name": {"$regex": s, "$options": "i"}},
+            {"shop": {"$regex": s, "$options": "i"}},
+            {"vendor": {"$regex": s, "$options": "i"}},
+            {"item": {"$regex": s, "$options": "i"}},
+            {"items": {"$regex": s, "$options": "i"}},
+        ]
 
     expenses = list(db.expenses.find(query).sort(sort, order).limit(limit))
 
@@ -54,20 +101,17 @@ async def get_expenses(
 
 
 @router.post("/", status_code=201)
-async def create_expense(expense: Expense):
-    data = expense_to_dict(expense)
+async def create_expense(expense: dict):
+    data = clean_expense(expense)
     now = datetime.utcnow().isoformat()
 
-    data["category"] = data.get("category") if data.get("category") in ["clinical", "home"] else "clinical"
-    data["expenseName"] = data.get("expenseName", "").strip()
-    data["status"] = data.get("status") if data.get("status") in ["paid", "unpaid"] else "paid"
-    data["amount"] = float(data.get("amount") or 0)
-    data["date"] = data.get("date") or now[:10]
+    data["expenseName"] = str(data.get("expenseName") or data.get("description") or "").strip()
+    data["status"] = data.get("status") or "unpaid"
     data["createdAt"] = now
     data["updatedAt"] = now
 
-    if not data["expenseName"]:
-        raise HTTPException(status_code=400, detail="Expense name is required.")
+    if not data["expenseName"] and not data.get("name") and not data.get("item") and not data.get("items"):
+        raise HTTPException(status_code=400, detail="Expense description is required.")
 
     try:
         result = db.expenses.insert_one(data)
@@ -82,14 +126,7 @@ async def create_expense(expense: Expense):
 @router.put("/{expense_id}")
 async def update_expense(expense_id: str, expense: dict):
     oid = valid_object_id(expense_id)
-    expense.pop("_id", None)
-
-    if "category" in expense and expense["category"] not in ["clinical", "home"]:
-        expense["category"] = "clinical"
-    if "status" in expense and expense["status"] not in ["paid", "unpaid"]:
-        expense["status"] = "paid"
-    if "amount" in expense:
-        expense["amount"] = float(expense.get("amount") or 0)
+    expense = clean_expense(expense)
 
     expense["updatedAt"] = datetime.utcnow().isoformat()
 
