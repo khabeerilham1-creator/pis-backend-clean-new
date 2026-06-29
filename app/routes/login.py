@@ -18,6 +18,26 @@ class LoginData(BaseModel):
 
 @router.post("/login")
 async def login(data: LoginData):
+    shift_users = [
+        {
+            "username": "morning",
+            "password": os.getenv("MORNING_SHIFT_PASSWORD", "12345"),
+            "name": "Dr 1",
+            "role": "admin",
+            "shiftId": "morning",
+            "shiftName": "Morning Shift",
+            "doctorName": "Dr 1",
+        },
+        {
+            "username": "evening",
+            "password": os.getenv("EVENING_SHIFT_PASSWORD", "6789"),
+            "name": "Dr 2",
+            "role": "admin",
+            "shiftId": "evening",
+            "shiftName": "Evening Shift",
+            "doctorName": "Dr 2",
+        },
+    ]
     users = [
         {
             "username": os.getenv("ADMIN_USERNAME", "hdc1122"),
@@ -37,7 +57,7 @@ async def login(data: LoginData):
             "name": os.getenv("DOCTOR_NAME", "Dr Zaffar Iqbal"),
             "role": "doctor",
         },
-    ]
+    ] + shift_users
 
     matched_user = next(
         (
@@ -56,6 +76,15 @@ async def login(data: LoginData):
             "role": matched_user["role"],
         }
 
+        if matched_user.get("shiftId"):
+            token_payload.update(
+                {
+                    "shiftId": matched_user["shiftId"],
+                    "shiftName": matched_user["shiftName"],
+                    "doctorName": matched_user["doctorName"],
+                }
+            )
+
         token = create_access_token(
             token_payload
         )
@@ -66,6 +95,15 @@ async def login(data: LoginData):
             "username": matched_user["username"],
             "name": matched_user["name"],
         }
+
+        if matched_user.get("shiftId"):
+            response.update(
+                {
+                    "shiftId": matched_user["shiftId"],
+                    "shiftName": matched_user["shiftName"],
+                    "doctorName": matched_user["doctorName"],
+                }
+            )
 
         return response
 
