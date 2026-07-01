@@ -21,7 +21,7 @@ async def login(data: LoginData):
     shift_users = [
         {
             "username": "morning",
-            "password": os.getenv("MORNING_SHIFT_PASSWORD", "12345"),
+            "password": os.getenv("MORNING_SHIFT_PASSWORD", "arabic"),
             "name": "Dr 1",
             "role": "admin",
             "shiftId": "morning",
@@ -30,7 +30,7 @@ async def login(data: LoginData):
         },
         {
             "username": "evening",
-            "password": os.getenv("EVENING_SHIFT_PASSWORD", "6789"),
+            "password": os.getenv("EVENING_SHIFT_PASSWORD", "persian"),
             "name": "Dr 2",
             "role": "admin",
             "shiftId": "evening",
