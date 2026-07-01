@@ -7,6 +7,7 @@ from app.routes.inventory import router as inventory_router
 from app.routes.expenses import router as expenses_router
 from app.routes.dentist_revenue import router as dentist_revenue_router
 from app.routes.lab_payments import router as lab_payments_router
+from app.routes.activity_logs import router as activity_logs_router
 
 app = FastAPI()
 
@@ -24,6 +25,7 @@ app.include_router(inventory_router)
 app.include_router(expenses_router)
 app.include_router(dentist_revenue_router)
 app.include_router(lab_payments_router)
+app.include_router(activity_logs_router)
 
 @app.get("/")
 async def root():

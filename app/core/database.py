@@ -49,6 +49,8 @@ def ensure_indexes():
         db.dentist_revenue.create_index("dentistName")
         db.dentist_revenue.create_index("patientId")
         db.dentist_revenue.create_index("updatedAt")
+        db.activity_logs.create_index("timestamp")
+        db.activity_logs.create_index("role")
     except Exception as exc:
         print(f"Database index setup skipped: {exc}")
 

@@ -16,6 +16,17 @@ class LoginData(BaseModel):
     password: str
 
 
+class RoleAccessData(BaseModel):
+    role: str
+    accessCode: str
+    dentistId: str | None = None
+
+
+class ShiftAccessData(BaseModel):
+    shiftId: str
+    accessCode: str
+
+
 @router.post("/login")
 async def login(data: LoginData):
     shift_users = [
@@ -108,3 +119,87 @@ async def login(data: LoginData):
         return response
 
     raise HTTPException(status_code=401, detail="Invalid credentials")
+
+
+@router.post("/shift-access")
+async def shift_access(data: ShiftAccessData):
+    shift_id = (data.shiftId or "").strip().lower()
+    access_code = (data.accessCode or "").strip()
+
+    shift_rules = {
+        "morning": {
+            "password": os.getenv("MORNING_SHIFT_PASSWORD", "arabic"),
+            "shiftName": "Morning Shift",
+            "doctorName": "Dr 1",
+        },
+        "evening": {
+            "password": os.getenv("EVENING_SHIFT_PASSWORD", "persian"),
+            "shiftName": "Evening Shift",
+            "doctorName": "Dr 2",
+        },
+    }
+
+    shift = shift_rules.get(shift_id)
+
+    if not shift or access_code != shift["password"]:
+        raise HTTPException(status_code=401, detail="Invalid shift code")
+
+    return {
+        "shiftId": shift_id,
+        "shiftName": shift["shiftName"],
+        "doctorName": shift["doctorName"],
+    }
+
+
+@router.post("/role-access")
+async def role_access(data: RoleAccessData):
+    requested_role = (data.role or "").strip().lower()
+    dentist_id = (data.dentistId or "").strip().lower()
+    access_code = (data.accessCode or "").strip()
+
+    role_access_rules = {
+        "receptionist": {
+            "password": os.getenv("RECEPTIONIST_ROLE_PASSWORD", "receipisnist"),
+            "name": os.getenv("RECEPTIONIST_ROLE_NAME", "Reception Desk"),
+            "role": "receptionist",
+        },
+        "admin": {
+            "password": os.getenv("ADMIN_ROLE_PASSWORD", "newtimeline"),
+            "name": os.getenv("ADMIN_ROLE_NAME", "Admin"),
+            "role": "admin",
+        },
+    }
+
+    dentist_rules = {
+        "dr-tufyl": {
+            "password": os.getenv("DR_TUFYL_ROLE_PASSWORD", "good morning"),
+            "name": "Dr Tufyl",
+        },
+        "dr-abdur-rehman": {
+            "password": os.getenv("DR_ABDUR_REHMAN_ROLE_PASSWORD", "dentist"),
+            "name": "Dr Abdur Rehman",
+        },
+    }
+
+    if requested_role == "dentist":
+        dentist = dentist_rules.get(dentist_id)
+
+        if not dentist or access_code != dentist["password"]:
+            raise HTTPException(status_code=401, detail="Invalid access code")
+
+        return {
+            "role": "dentist",
+            "name": dentist["name"],
+            "dentistId": dentist_id,
+            "dentistName": dentist["name"],
+        }
+
+    rule = role_access_rules.get(requested_role)
+
+    if not rule or access_code != rule["password"]:
+        raise HTTPException(status_code=401, detail="Invalid access code")
+
+    return {
+        "role": rule["role"],
+        "name": rule["name"],
+    }
