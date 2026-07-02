@@ -29,26 +29,6 @@ class ShiftAccessData(BaseModel):
 
 @router.post("/login")
 async def login(data: LoginData):
-    shift_users = [
-        {
-            "username": "morning",
-            "password": os.getenv("MORNING_SHIFT_PASSWORD", "arabic"),
-            "name": "Dr 1",
-            "role": "admin",
-            "shiftId": "morning",
-            "shiftName": "Morning Shift",
-            "doctorName": "Dr 1",
-        },
-        {
-            "username": "evening",
-            "password": os.getenv("EVENING_SHIFT_PASSWORD", "persian"),
-            "name": "Dr 2",
-            "role": "admin",
-            "shiftId": "evening",
-            "shiftName": "Evening Shift",
-            "doctorName": "Dr 2",
-        },
-    ]
     users = [
         {
             "username": os.getenv("ADMIN_USERNAME", "hdc1122"),
@@ -58,7 +38,7 @@ async def login(data: LoginData):
         },
         {
             "username": os.getenv("RECEPTIONIST_USERNAME", "receptionist"),
-            "password": os.getenv("RECEPTIONIST_PASSWORD", "reception123"),
+            "password": os.getenv("RECEPTIONIST_PASSWORD", "receptionist"),
             "name": os.getenv("RECEPTIONIST_NAME", "Reception Desk"),
             "role": "receptionist",
         },
@@ -68,7 +48,7 @@ async def login(data: LoginData):
             "name": os.getenv("DOCTOR_NAME", "Dr Zaffar Iqbal"),
             "role": "doctor",
         },
-    ] + shift_users
+    ]
 
     matched_user = next(
         (
@@ -159,7 +139,7 @@ async def role_access(data: RoleAccessData):
 
     role_access_rules = {
         "receptionist": {
-            "password": os.getenv("RECEPTIONIST_ROLE_PASSWORD", "receipisnist"),
+            "password": os.getenv("RECEPTIONIST_ROLE_PASSWORD", "receptionist"),
             "name": os.getenv("RECEPTIONIST_ROLE_NAME", "Reception Desk"),
             "role": "receptionist",
         },
@@ -172,7 +152,7 @@ async def role_access(data: RoleAccessData):
 
     dentist_rules = {
         "dr-tufyl": {
-            "password": os.getenv("DR_TUFYL_ROLE_PASSWORD", "good morning"),
+            "password": os.getenv("DR_TUFYL_ROLE_PASSWORD", "goodmorning"),
             "name": "Dr Tufyl",
         },
         "dr-abdur-rehman": {
