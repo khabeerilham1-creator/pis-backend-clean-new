@@ -29,6 +29,8 @@ class ShiftAccessData(BaseModel):
 
 @router.post("/login")
 async def login(data: LoginData):
+    username = (data.username or "").strip().lower()
+    password = (data.password or "").strip()
     users = [
         {
             "username": os.getenv("ADMIN_USERNAME", "hdc1122"),
@@ -54,7 +56,7 @@ async def login(data: LoginData):
         (
             user
             for user in users
-            if data.username == user["username"] and data.password == user["password"]
+            if username == str(user["username"]).strip().lower() and password == user["password"]
         ),
         None,
     )
@@ -104,11 +106,11 @@ async def login(data: LoginData):
 @router.post("/shift-access")
 async def shift_access(data: ShiftAccessData):
     shift_id = (data.shiftId or "").strip().lower()
-    access_code = (data.accessCode or "").strip()
+    access_code = (data.accessCode or "").strip().lower()
 
     shift_rules = {
         "morning": {
-            "password": os.getenv("MORNING_SHIFT_PASSWORD", "arabic"),
+            "password": os.getenv("MORNING_SHIFT_PASSWORD", "american"),
             "shiftName": "Morning Shift",
             "doctorName": "Dr 1",
         },
@@ -121,7 +123,7 @@ async def shift_access(data: ShiftAccessData):
 
     shift = shift_rules.get(shift_id)
 
-    if not shift or access_code != shift["password"]:
+    if not shift or access_code != str(shift["password"]).strip().lower():
         raise HTTPException(status_code=401, detail="Invalid shift code")
 
     return {
@@ -135,7 +137,7 @@ async def shift_access(data: ShiftAccessData):
 async def role_access(data: RoleAccessData):
     requested_role = (data.role or "").strip().lower()
     dentist_id = (data.dentistId or "").strip().lower()
-    access_code = (data.accessCode or "").strip()
+    access_code = (data.accessCode or "").strip().lower()
 
     role_access_rules = {
         "receptionist": {
@@ -164,7 +166,7 @@ async def role_access(data: RoleAccessData):
     if requested_role == "dentist":
         dentist = dentist_rules.get(dentist_id)
 
-        if not dentist or access_code != dentist["password"]:
+        if not dentist or access_code != str(dentist["password"]).strip().lower():
             raise HTTPException(status_code=401, detail="Invalid access code")
 
         return {
@@ -176,7 +178,7 @@ async def role_access(data: RoleAccessData):
 
     rule = role_access_rules.get(requested_role)
 
-    if not rule or access_code != rule["password"]:
+    if not rule or access_code != str(rule["password"]).strip().lower():
         raise HTTPException(status_code=401, detail="Invalid access code")
 
     return {
