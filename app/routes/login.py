@@ -112,12 +112,12 @@ async def shift_access(data: ShiftAccessData):
         "morning": {
             "password": os.getenv("MORNING_SHIFT_PASSWORD", "american"),
             "shiftName": "Morning Shift",
-            "doctorName": "Dr 1",
+            "doctorName": "Dr Tufyl",
         },
         "evening": {
             "password": os.getenv("EVENING_SHIFT_PASSWORD", "persian"),
             "shiftName": "Evening Shift",
-            "doctorName": "Dr 2",
+            "doctorName": "Dr Abdur Rehman",
         },
     }
 

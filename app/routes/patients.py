@@ -15,12 +15,14 @@ router = APIRouter(prefix="/patients", tags=["patients"])
 SHIFT_DOCTORS = {
     "morning": {
         "shiftName": "Morning Shift",
-        "doctorName": "Dr 1",
+        "doctorName": "Dr Tufyl",
+        "dentistId": "dr-tufyl",
         "doctorAliases": ["Dr Tufyl"],
     },
     "evening": {
         "shiftName": "Evening Shift",
-        "doctorName": "Dr 2",
+        "doctorName": "Dr Abdur Rehman",
+        "dentistId": "dr-abdur-rehman",
         "doctorAliases": ["Dr Abdur Rehman"],
     },
 }
@@ -98,8 +100,17 @@ def build_shift_query(shift: Optional[str]) -> Optional[dict]:
             {"biography.shift": shift_id},
             {"shiftName": {"$regex": details["shiftName"], "$options": "i"}},
             {"biography.shiftName": {"$regex": details["shiftName"], "$options": "i"}},
+            {"dentistId": details["dentistId"]},
+            {"biography.dentistId": details["dentistId"]},
+            {"dentistName": {"$in": [details["doctorName"], *details.get("doctorAliases", [])]}},
+            {"doctorName": {"$in": [details["doctorName"], *details.get("doctorAliases", [])]}},
             {
                 "biography.doctorName": {
+                    "$in": [details["doctorName"], *details.get("doctorAliases", [])]
+                }
+            },
+            {
+                "biography.dentistName": {
                     "$in": [details["doctorName"], *details.get("doctorAliases", [])]
                 }
             },
@@ -120,9 +131,12 @@ def normalize_patient(doc: dict) -> dict:
         "category": ("category",),
         "patientType": ("purpose_of_visit", "patient_type"),
         "age": ("age",),
+        "birthDate": ("birth_date", "dob"),
         "email": ("email",),
         "address": ("address",),
         "gender": ("gender",),
+        "cellNo": ("cell_no",),
+        "fileNo": ("file_no",),
         "occupation": ("occupation",),
         "date": ("date",),
         "referredBy": ("referred_by",),
@@ -146,12 +160,35 @@ def normalize_patient(doc: dict) -> dict:
         shift_details = SHIFT_DOCTORS[shift_id]
         doc["shiftId"] = doc.get("shiftId") or shift_id
         doc["shiftName"] = doc.get("shiftName") or shift_details["shiftName"]
+        doc["dentistId"] = doc.get("dentistId") or biography.get("dentistId") or shift_details["dentistId"]
+        doc["dentistName"] = doc.get("dentistName") or biography.get("dentistName") or shift_details["doctorName"]
+        doc["doctorName"] = doc.get("doctorName") or biography.get("doctorName") or shift_details["doctorName"]
         biography["shiftId"] = biography.get("shiftId") or shift_id
         biography["shiftName"] = biography.get("shiftName") or shift_details["shiftName"]
+        biography["dentistId"] = biography.get("dentistId") or doc.get("dentistId")
+        biography["dentistName"] = biography.get("dentistName") or doc.get("dentistName")
         biography["doctorName"] = biography.get("doctorName") or shift_details["doctorName"]
 
+    if doc.get("dentistId") and not biography.get("dentistId"):
+        biography["dentistId"] = doc["dentistId"]
+    if doc.get("dentistName") and not biography.get("dentistName"):
+        biography["dentistName"] = doc["dentistName"]
+    if doc.get("doctorName") and not biography.get("doctorName"):
+        biography["doctorName"] = doc["doctorName"]
+    if biography.get("dentistId") and not doc.get("dentistId"):
+        doc["dentistId"] = biography["dentistId"]
+    if biography.get("dentistName") and not doc.get("dentistName"):
+        doc["dentistName"] = biography["dentistName"]
+    if biography.get("doctorName") and not doc.get("doctorName"):
+        doc["doctorName"] = biography["doctorName"]
+
+    doc.setdefault("entrySheetType", "routine")
     doc.setdefault("checkup", {})
     doc.setdefault("plannedSequence", [])
+    doc.setdefault("implantCommencement", {})
+    doc.setdefault("orthodonticAssessment", {})
+    doc.setdefault("orthodonticAdjustments", [])
+    doc.setdefault("fullDenture", {})
     doc.setdefault("invoices", [])
     doc.setdefault("invoice", [])
     doc.setdefault("discount", 0)
