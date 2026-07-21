@@ -10,6 +10,7 @@ from app.routes.lab_payments import router as lab_payments_router
 from app.routes.daily_expenses import router as daily_expenses_router
 from app.routes.account_payables import router as account_payables_router
 from app.routes.activity_logs import router as activity_logs_router
+from app.routes.appointments import router as appointments_router
 
 app = FastAPI()
 
@@ -30,6 +31,7 @@ app.include_router(lab_payments_router)
 app.include_router(daily_expenses_router)
 app.include_router(account_payables_router)
 app.include_router(activity_logs_router)
+app.include_router(appointments_router)
 
 @app.get("/")
 async def root():
