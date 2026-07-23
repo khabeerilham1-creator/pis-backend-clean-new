@@ -16,6 +16,8 @@ VALID_CATEGORIES = {
     "dental-implants",
     "clinical",
     "home",
+    "maintenance",
+    "refurbishing",
 }
 
 

@@ -2,6 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from pymongo import MongoClient
+from pymongo.errors import ConfigurationError
 
 load_dotenv()
 
@@ -22,10 +23,33 @@ else:
     database_name = os.getenv("DB_NAME", "pis")
     print("REAL DATABASE ACTIVE")
 
-client = MongoClient(
-    mongo_url,
-    serverSelectionTimeoutMS=5000,
-)
+def create_mongo_client(primary_url: str) -> MongoClient:
+    try:
+        return MongoClient(
+            primary_url,
+            serverSelectionTimeoutMS=5000,
+            connectTimeoutMS=5000,
+            connect=False,
+        )
+    except ConfigurationError as exc:
+        fallback_url = os.getenv("LOCAL_MONGO_URL", "mongodb://localhost:27017")
+
+        print(f"Configured MongoDB URL could not be prepared: {exc}")
+
+        if fallback_url == primary_url:
+            raise
+
+        print("Falling back to LOCAL_MONGO_URL / localhost MongoDB.")
+
+        return MongoClient(
+            fallback_url,
+            serverSelectionTimeoutMS=3000,
+            connectTimeoutMS=3000,
+            connect=False,
+        )
+
+
+client = create_mongo_client(mongo_url)
 
 db = client[database_name]
 
