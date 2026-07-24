@@ -272,7 +272,7 @@ async def get_patients(
     search: Optional[str] = Query(None, description="Search by name, phone, or reg no"),
     shift: Optional[str] = Query(None, description="Filter by clinic shift"),
     page: int = Query(1, ge=1, description="Page number"),
-    limit: int = Query(20, ge=1, le=100, description="Results per page"),
+    limit: int = Query(20, ge=1, le=1000, description="Results per page"),
     sort: str = Query("createdAt", description="Sort field"),
     order: int = Query(-1, description="1=asc, -1=desc"),
 ):
