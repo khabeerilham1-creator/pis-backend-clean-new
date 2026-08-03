@@ -85,6 +85,10 @@ def ensure_indexes():
         db.messages.create_index("fromRole")
         db.messages.create_index("toRole")
         db.messages.create_index("read")
+        db.entry_sheet.create_index("date")
+        db.entry_sheet.create_index("shiftId")
+        db.entry_sheet.create_index("name")
+        db.entry_sheet.create_index("createdAt")
     except Exception as exc:
         print(f"Database index setup skipped: {exc}")
 

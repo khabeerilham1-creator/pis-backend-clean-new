@@ -12,6 +12,7 @@ from app.routes.account_payables import router as account_payables_router
 from app.routes.activity_logs import router as activity_logs_router
 from app.routes.appointments import router as appointments_router
 from app.routes.messages import router as messages_router
+from app.routes.entry_sheet import router as entry_sheet_router
 
 app = FastAPI()
 
@@ -34,6 +35,7 @@ app.include_router(account_payables_router)
 app.include_router(activity_logs_router)
 app.include_router(appointments_router)
 app.include_router(messages_router)
+app.include_router(entry_sheet_router)
 
 @app.get("/")
 async def root():
