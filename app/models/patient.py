@@ -18,6 +18,8 @@ class Patient(BaseModel):
     orthodonticAdjustments: List[Dict[str, Any]] = Field(default_factory=list)
     fullDenture: Dict[str, Any] = Field(default_factory=dict)
     acknowledgement: Dict[str, Any] = Field(default_factory=dict)
+    paymentPlan: Dict[str, Any] = Field(default_factory=dict)
+    appointmentStatus: str = ""
     invoices: List[Dict[str, Any]] = Field(default_factory=list)
     invoice: List[Dict[str, Any]] = Field(default_factory=list)
     discount: int = 0
