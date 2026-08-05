@@ -191,6 +191,8 @@ def normalize_patient(doc: dict) -> dict:
     doc.setdefault("fullDenture", {})
     doc.setdefault("acknowledgement", {})
     doc.setdefault("paymentPlan", {})
+    doc.setdefault("caseStatus", {})
+    doc.setdefault("caseUploads", [])
     doc.setdefault("appointmentStatus", "")
     doc.setdefault("invoices", [])
     doc.setdefault("invoice", [])
